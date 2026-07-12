@@ -1,0 +1,71 @@
+{
+  "name": "yumoframe",
+  "version": "0.1.0",
+  "description": "Remotion-based CLI for agent-authored kinetic vertical videos from text or media",
+  "type": "module",
+  "bin": {
+    "yumoframe": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "runtime",
+    "README.md",
+    "README.en.md"
+  ],
+  "scripts": {
+    "build:cli": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "test": "pnpm build:cli && node --test test/*.test.mjs",
+    "studio": "pnpm build:cli && node dist/cli.js studio",
+    "render": "pnpm build:cli && node dist/cli.js render",
+    "validate": "pnpm build:cli && node dist/cli.js validate",
+    "resolve": "pnpm build:cli && node dist/cli.js resolve",
+    "sync": "pnpm build:cli && node dist/cli.js sync",
+    "layout": "pnpm build:cli && node dist/cli.js layout",
+    "dev": "pnpm build:cli && node dist/cli.js dev",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --dir runtime/templates/comedy-text typecheck",
+    "build": "pnpm build:cli && pnpm --dir runtime/templates/comedy-text build"
+  },
+  "keywords": [
+    "remotion",
+    "video",
+    "cli",
+    "agent",
+    "skills",
+    "kinetic-typography",
+    "chinese"
+  ],
+  "author": "yuchenii",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuchenii/YumoFrame.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yuchenii/YumoFrame/issues"
+  },
+  "homepage": "https://github.com/yuchenii/YumoFrame#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.7.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.8",
+    "@remotion/cli": "4.0.332",
+    "@remotion/player": "4.0.332",
+    "@remotion/renderer": "4.0.332",
+    "commander": "^14.0.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.332"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.1",
+    "typescript": "6.0.2",
+    "vite": "8.0.2"
+  }
+}

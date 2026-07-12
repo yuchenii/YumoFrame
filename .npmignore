@@ -1,0 +1,20 @@
+# package.json "files" already limits the tarball to dist/ + runtime/.
+# These patterns strip junk that would otherwise ship inside runtime/.
+
+runtime/**/node_modules/**
+runtime/**/.venv/**
+runtime/**/.remotion/**
+runtime/**/__pycache__/**
+runtime/**/*.pyc
+runtime/**/.pytest_cache/**
+runtime/**/*.tsbuildinfo
+
+runtime/templates/**/out/**
+runtime/templates/**/dist/**
+runtime/templates/**/coverage/**
+
+# Processor unit tests are for the repo, not the installed CLI.
+runtime/processors/**/tests/**
+
+**/.DS_Store
+*.log

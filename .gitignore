@@ -1,0 +1,33 @@
+# Dependencies & local tool caches
+node_modules/
+.pnpm-store/
+.venv/
+.cache/
+.remotion/
+.codegraph/
+
+# Build & render output
+dist/
+out/
+*.tsbuildinfo
+
+# Python
+*.pyc
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env & editor noise
+.env
+.env.*
+.DS_Store
+*.log
+.idea/
+.vscode/
+*.swp
+*~
+
+# accidentally committed test media
+/test.mp3
+/test.mp4
