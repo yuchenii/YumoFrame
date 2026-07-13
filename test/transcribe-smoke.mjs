@@ -23,7 +23,7 @@ writeFileSync(output + '.json', JSON.stringify({engine: 'fixture', language: 'zh
 const configPath = join(root, 'yumoframe.config.json');
 const config = JSON.parse(readFileSync(configPath, 'utf8'));
 config.paths.media = 'assets/input.wav';
-config.processors.asr = {type: 'command', command: [process.execPath, fakeAsr], env: {}};
+config.processors.asr = {runner: 'command', command: [process.execPath, fakeAsr], env: {}};
 writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
 const result = await transcribeProject(root);

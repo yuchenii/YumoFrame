@@ -12,6 +12,7 @@ import {ejectProject} from './commands/eject.js';
 import {initProject} from './commands/init.js';
 import {layoutProject} from './commands/layout.js';
 import {renderProject} from './commands/render.js';
+import {synthesizeProject} from './commands/synthesize.js';
 import {transcribeProject} from './commands/transcribe.js';
 import {resolveProject} from './commands/resolve.js';
 import {syncProjectFiles, type SyncTarget} from './commands/sync.js';
@@ -69,6 +70,29 @@ Input and outputs are read from yumoframe.config.json:
     .action(async () => {
       const result = await transcribeProject();
       console.log(`Wrote ${result.transcriptPath}, ${result.transcriptMdPath}, and ${result.voicePath}`);
+    });
+
+  program
+    .command('synthesize')
+    .alias('tts')
+    .description('synthesize a voice track from text via the configured TTS processor')
+    .option('--text <text>', 'inline text to synthesize (overrides the input file)')
+    .option('--input <file>', 'text file to read (default: config.paths.ttsText or text.txt)')
+    .option('--out <file>', 'output audio path (default: config.paths.media)')
+    .addHelpText('after', `
+Reads processors.tts from yumoframe.config.json:
+  runner "api"      OpenAI-compatible /audio/speech (set the key env, e.g. DASHSCOPE_API_KEY)
+  runner "command"  external CLI with {text}/{out}/{subs} placeholders, e.g. uvx edge-tts
+
+Timing (skips ASR when possible):
+  1. {subs} in the command → TTS subtitles become transcript.json directly
+  2. else processors.align (forced align: audio + known text) → transcript.json
+  3. else audio only → run "yumoframe transcribe" afterwards`)
+    .action(async (options: {text?: string; input?: string; out?: string}) => {
+      const result = await synthesizeProject(options);
+      console.log(`Wrote ${result.outputPath}`);
+      if (result.transcriptPath) console.log(`Wrote ${result.transcriptPath} (timing derived — run "yumoframe resolve", which auto-aligns)`);
+      else console.log('Audio only; run "yumoframe transcribe" to get timing.');
     });
 
   program

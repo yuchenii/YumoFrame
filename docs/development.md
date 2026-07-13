@@ -40,7 +40,7 @@ npx skills add yuchenii/YumoFrame --skill yumoframe-comedy-text
 |-------------|-------------|
 | `src/**` | `pnpm build:cli`, then re-run the CLI / `pnpm test` |
 | `runtime/templates/comedy-text/**` | No CLI rebuild; open `yumoframe studio` in a data project |
-| `runtime/processors/funasr/**` | No CLI rebuild; run `yumoframe transcribe` in a media project |
+| `runtime/processors/funasr/**` | No CLI rebuild; run `yumoframe transcribe` (ASR) or `synthesize` with `processors.align` (forced align). **Bump `runtimeVersion`** so the cached venv rebuilds with your Python changes |
 | `runtime/skills/**` | Re-run `npx skills add …` if your agent install was a copy; symlink installs pick up edits automatically |
 
 ## Useful scripts
@@ -57,7 +57,7 @@ pnpm pack --dry-run # inspect the npm tarball (dist/ + runtime/)
 ```text
 src/                              # TypeScript CLI (compiled to dist/)
 runtime/templates/comedy-text/    # packaged Remotion template
-runtime/processors/funasr/        # packaged ASR processor
+runtime/processors/funasr/        # packaged Python engine: ASR + forced alignment (uv)
 runtime/skills/yumoframe-comedy-text/
 runtime/schemas/
 test/                             # node:test suites against dist/

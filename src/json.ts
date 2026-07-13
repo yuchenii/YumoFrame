@@ -72,6 +72,36 @@ function parsed(text: string, label: string): unknown {
   }
 }
 
+/** Validate an optional `{key: string}` env map on a processor. */
+function processorEnv(spec: JsonRecord, label: string): void {
+  if (spec.env === undefined) return;
+  const env = record(spec.env, `${label}.env`);
+  for (const [key, envValue] of Object.entries(env)) {
+    if (typeof envValue !== 'string' && envValue !== undefined) throw new Error(`${label}.env.${key} must be a string`);
+  }
+}
+
+/** Validate one pluggable processor (uv | command | api), shared by asr and tts. */
+function processor(value: unknown, label: string): void {
+  const spec = record(value, label);
+  const runner = stringField(spec, 'runner', label);
+  if (!['uv', 'command', 'api'].includes(runner)) throw new Error(`${label}.runner must be uv, command, or api`);
+  processorEnv(spec, label);
+  if (runner === 'uv') {
+    stringField(spec, 'name', label);
+    optionalString(spec, 'uvBin', label);
+    if (spec.options !== undefined) record(spec.options, `${label}.options`);
+  } else if (runner === 'command') {
+    if (!Array.isArray(spec.command) || spec.command.length === 0 || !spec.command.every((item) => typeof item === 'string')) {
+      throw new Error(`${label}.command must be a non-empty string array`);
+    }
+  } else {
+    stringField(spec, 'provider', label);
+    for (const key of ['baseUrl', 'model', 'voice', 'apiKeyEnv']) optionalString(spec, key, label);
+    if (spec.options !== undefined) record(spec.options, `${label}.options`);
+  }
+}
+
 /**
  * Parse and validate `yumoframe.config.json`.
  * @param text - Raw JSON string.
@@ -94,28 +124,9 @@ export function parseConfig(text: string, label = 'yumoframe.config.json'): Yumo
   stringField(render, 'composition', `${label}.render`);
   for (const key of ['width', 'height', 'fps']) optionalNumber(render, key, `${label}.render`);
   const processors = record(value.processors, `${label}.processors`);
-  const asr = record(processors.asr, `${label}.processors.asr`);
-  const asrType = stringField(asr, 'type', `${label}.processors.asr`);
-  if (!['builtin', 'command'].includes(asrType)) throw new Error(`${label}.processors.asr.type must be builtin or command`);
-  for (const key of ['name', 'runner']) optionalString(asr, key, `${label}.processors.asr`);
-  if (asr.command !== undefined && (!Array.isArray(asr.command) || !asr.command.every((item) => typeof item === 'string'))) {
-    throw new Error(`${label}.processors.asr.command must be a string array`);
-  }
-  // External ASR: argv is required; builtin FunASR ignores command.
-  if (asrType === 'command' && (!Array.isArray(asr.command) || asr.command.length === 0)) {
-    throw new Error(`${label}.processors.asr.command is required for command processors`);
-  }
-  if (asr.env !== undefined) {
-    const env = record(asr.env, `${label}.processors.asr.env`);
-    for (const [key, envValue] of Object.entries(env)) {
-      if (typeof envValue !== 'string' && envValue !== undefined) throw new Error(`${label}.processors.asr.env.${key} must be a string`);
-    }
-  }
-  if (asr.options !== undefined) {
-    const options = record(asr.options, `${label}.processors.asr.options`);
-    for (const key of ['device', 'hotwords']) optionalString(options, key, `${label}.processors.asr.options`);
-    optionalNumber(options, 'maxSegmentMs', `${label}.processors.asr.options`);
-  }
+  processor(processors.asr, `${label}.processors.asr`);
+  if (processors.tts !== undefined) processor(processors.tts, `${label}.processors.tts`);
+  if (processors.align !== undefined) processor(processors.align, `${label}.processors.align`);
   return value as unknown as YumoFrameConfig;
 }
 

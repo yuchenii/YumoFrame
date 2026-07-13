@@ -1,6 +1,6 @@
 ---
 name: yumoframe-comedy-text
-description: Create and revise YumoFrame comedy-text kinetic videos from Chinese text, audio, or video. Use for the complete reviewed workflow across yumoframe init/transcribe/sync/resolve/validate/studio/render and when editing transcript.md, lines.json, storyboard.json, or project.md. Preserve original media audio, align authored lines to reviewed transcripts, and require explicit preview approval before rendering.
+description: Create and revise YumoFrame comedy-text kinetic videos from Chinese text, audio, video, or text-to-speech. Use for the complete reviewed workflow across yumoframe init/synthesize/transcribe/sync/resolve/validate/studio/render and when editing transcript.md, lines.json, storyboard.json, or project.md. Preserve original media audio, synthesize a voice track from text when asked, align authored lines to reviewed/derived transcripts, and require explicit preview approval before rendering.
 ---
 
 # YumoFrame Comedy Text
@@ -30,16 +30,17 @@ Never silently chain validate, studio, and render.
 | `project.md` | AI + user | Review scenes/text/highlights |
 | `project.json` | CLI | Runtime; never edit |
 
-**Timing:** if `transcript.json` exists, `yumoframe resolve` **auto-aligns** line `start`/`end` from ASR. AI must not invent clocks. Highlight inside a line with multiple segments — never duplicate a word as a second line (breaks align).
+**Timing:** if `transcript.json` exists, `yumoframe resolve` **auto-aligns** line `start`/`end` from it (produced by `transcribe`, or by `synthesize` via TTS subtitles / forced alignment). AI must not invent clocks. Highlight inside a line with multiple segments — never duplicate a word as a second line (breaks align).
 
 In `project.md`, edit only scene grouping, bullet text, and `**highlight**` spans. Heading clocks and `rotate` are generated display data and are not parsed back by `sync project`.
 
 ## Checklist
 
 ```text
-- [ ] Input type and destination confirmed
-- [ ] Project initialized; media placed at config.paths.media when applicable
-- [ ] transcript.md proofread and confirmed for media input
+- [ ] Input type and destination confirmed (text / text-to-speech / audio / video)
+- [ ] Project initialized; media placed at config.paths.media, or text.txt written for TTS
+- [ ] For TTS: synthesized voice track; transcript derived or transcribe fallback run
+- [ ] transcript.md proofread and confirmed for media/TTS input
 - [ ] lines.json authored and checked
 - [ ] storyboard.json grouped without rewriting lines
 - [ ] resolve completed; project.md shown and confirmed
@@ -55,7 +56,7 @@ yumoframe init <slug> --template comedy-text
 cd <slug>
 ```
 
-For audio/video, copy the source into `assets/` with its real extension and set `paths.media` in `yumoframe.config.json` to that relative path. Do not replace the source with generated TTS.
+For **audio/video**, copy the source into `assets/` with its real extension and set `paths.media` in `yumoframe.config.json` to that relative path. Do not overwrite a real source file with generated TTS.
 
 ```bash
 cp /absolute/path/input.mp3 assets/input.mp3
@@ -65,13 +66,28 @@ yumoframe transcribe
 
 `transcribe` writes `transcript.json`, `transcript.md`, and the extracted original voice at `paths.voice`.
 
-For text-only input, skip transcription and author sequential global `start`/`end` seconds. Use roughly 0.06–0.18 seconds per character plus a short hold; keep every `end > start`.
+For **text-to-speech** (make a voiced video from text), write the script to `text.txt` and synthesize. This uses `processors.tts` and, when the engine can, derives timing without ASR:
 
-## 2. Proofread media transcript
+```bash
+# Write text.txt (one script; punctuation is fine — it shapes prosody).
+yumoframe synthesize          # or: yumoframe tts
+```
+
+`synthesize` writes the voice track to `paths.media`. Read its output:
+
+- **"Wrote … transcript.json (timing derived …)"** — timing came from TTS subtitles or forced alignment. Treat exactly like media: proofread `transcript.md`, author lines/storyboard **without clocks**, `resolve`.
+- **"Audio only; run yumoframe transcribe …"** — the engine gave audio only and no `processors.align` is set. Run `yumoframe transcribe` next, then proceed as media.
+
+Do not hand-write clocks for TTS; timing still comes only from `transcript.json`.
+
+For **text-only** input, skip audio entirely and author sequential global `start`/`end` seconds. Use roughly 0.06–0.18 seconds per character plus a short hold; keep every `end > start`.
+
+## 2. Proofread transcript (media or TTS)
 
 Edit only `校对：` lines in `transcript.md`:
 
 - Fix ASR homophones, word breaks, and obvious recognition errors.
+- For TTS-derived transcripts the text already matches `text.txt`, so this pass is mostly confirmatory — just fix any odd segmentation.
 - Leave `校对：` empty for non-speech/noise segments that should be dropped.
 - Preserve headings, clocks, and `原文：` text.
 - Do not add performance line breaks or highlights yet.
@@ -86,7 +102,7 @@ yumoframe sync transcript
 
 Break the reviewed text into semantic rows. Strip punctuation and spaces, keep words/numbers intact, and highlight at most 35% of characters.
 
-**Media:** omit `start`/`end` (or leave anything). CLI overwrites clocks on `resolve` from transcript.  
+**Media / TTS:** omit `start`/`end` (or leave anything). CLI overwrites clocks on `resolve` from transcript.  
 **Text-only:** author sequential global clocks (~0.06–0.18s per char + hold).
 
 Highlight as in-line segments, e.g. one line `校长知道我要` + `复读`(highlight) — **not** a separate line that repeats `复读`.
@@ -113,7 +129,7 @@ Copy the completed lines unchanged into `scenes[].lines`:
 
 ```bash
 yumoframe resolve
-# Media: auto-aligns from transcript.json when present
+# Media / TTS: auto-aligns from transcript.json when present
 # Text-only / keep manual clocks: yumoframe resolve --no-align
 ```
 
@@ -150,6 +166,8 @@ Render validates again before starting Remotion.
 | Failure | Return to |
 |---------|-----------|
 | Missing/poor ASR text | media path, `transcribe`, or `transcript.md` |
+| TTS made audio but no `transcript.json` | run `yumoframe transcribe`, or set `processors.align` for forced alignment |
+| TTS voice/quality wrong | `text.txt` and `processors.tts` (voice/model/provider) in config |
 | Width, punctuation, highlight, or tiny-line error | `lines.json` |
 | Too many/few lines per scene | `storyboard.json` grouping |
 | `align miss` / overlap warning | duplicated highlight line, mid-word cut, or transcript 校对 |

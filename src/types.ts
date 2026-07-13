@@ -115,6 +115,39 @@ export interface YumoFrameProject {
   };
 }
 
+/** Local Python processor run once via uv; venv cached by (name, runtimeVersion). */
+export interface UvProcessor {
+  runner: 'uv';
+  /** Bundled sub-project under `runtime/processors/<name>`; also the venv cache key. */
+  name: string;
+  uvBin?: string;
+  env?: NodeJS.ProcessEnv;
+  options?: Record<string, string | number>;
+}
+
+/** Arbitrary external executable. `{text}`/`{out}` placeholders are substituted for TTS. */
+export interface CommandProcessor {
+  runner: 'command';
+  command: string[];
+  env?: NodeJS.ProcessEnv;
+}
+
+/** Online HTTP TTS via an OpenAI-compatible `/audio/speech` endpoint. */
+export interface ApiProcessor {
+  runner: 'api';
+  /** `openai` | `qwen3-tts` | `dashscope` | custom; selects the default baseUrl. */
+  provider: string;
+  baseUrl?: string;
+  model?: string;
+  voice?: string;
+  /** Name of the env var holding the API key (key never lives in the config file). */
+  apiKeyEnv?: string;
+  options?: Record<string, unknown>;
+}
+
+/** A pluggable processor: local uv, external command, or online API. */
+export type Processor = UvProcessor | CommandProcessor | ApiProcessor;
+
 /** Project-root `yumoframe.config.json` settings. */
 export interface YumoFrameConfig {
   version: string;
@@ -132,13 +165,9 @@ export interface YumoFrameConfig {
   };
   render: {composition: string; width?: number; height?: number; fps?: number};
   processors: {
-    asr: {
-      type: 'builtin' | 'command';
-      name?: string;
-      runner?: string;
-      command?: string[];
-      env?: NodeJS.ProcessEnv;
-      options?: {device?: string; hotwords?: string; maxSegmentMs?: number};
-    };
+    asr: Processor;
+    tts?: Processor;
+    /** Forced aligner: (audio + known text) → transcript.json, for TTS without native timestamps. */
+    align?: Processor;
   };
 }

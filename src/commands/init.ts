@@ -23,14 +23,15 @@ export function initProject({dir, template}: {dir: string; template: string}): s
   // Default path conventions used by the rest of the CLI.
   writeJson(resolve(root, 'yumoframe.config.json'), {
     framework: 'yumoframe',
-    version: '0.1.0',
-    runtimeVersion: '0.1.0',
+    version: '0.1.1',
+    runtimeVersion: '0.1.1',
     template,
     templateSource: 'runtime',
     templatePath: null,
     paths: {
       media: 'assets/input.mp4',
       voice: 'assets/voice.m4a',
+      ttsText: 'text.txt',
       transcript: 'transcript.json',
       transcriptMd: 'transcript.md',
       lines: 'lines.json',
@@ -44,14 +45,26 @@ export function initProject({dir, template}: {dir: string; template: string}): s
     render: {composition: 'ComedyTextVideo', width: 1080, height: 1920, fps: 30},
     processors: {
       asr: {
-        type: 'builtin',
-        name: 'funasr',
         runner: 'uv',
+        name: 'funasr',
         env: {},
         options: {device: 'auto', hotwords: '', maxSegmentMs: 30000},
       },
+      // Default TTS: edge-tts via uvx — install-free (only needs uv), no API key.
+      // {subs} makes edge-tts emit subtitles → transcript timing without an ASR round-trip.
+      // Version floor: older edge-tts builds 403 (Microsoft rotates the Sec-MS-GEC token);
+      // if it 403s again later, run once with `uvx --refresh …` or raise the floor.
+      // For API TTS swap to: {runner:'api', provider:'qwen3-tts', model, voice, apiKeyEnv}.
+      tts: {
+        runner: 'command',
+        command: ['uvx', '--from', 'edge-tts>=7.2.8', 'edge-tts', '--voice', 'zh-CN-YunxiNeural', '--text', '{text}', '--write-media', '{out}', '--write-subtitles', '{subs}'],
+      },
+      // Optional forced aligner for API TTS that returns audio only (audio + known text → transcript.json).
+      // e.g. {runner:'command', command:['my-aligner']} receiving audioPath textPath outputBase.
     },
   });
+  // Text source for `yumoframe synthesize`.
+  writeFileSync(resolve(root, 'text.txt'), '');
   // Stub line so validate/resolve have something to work with.
   writeJson(resolve(root, 'lines.json'), {
     version: '0.1.0',

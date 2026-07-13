@@ -10,7 +10,9 @@ import {findProjectRoot, loadConfig} from '../dist/config.js';
 import {initProject} from '../dist/commands/init.js';
 import {resolveComedyText, validateProject, validateStoryboard} from '../dist/comedy-text.js';
 import {resolveTemplate, templateInvocation} from '../dist/runtime.js';
-import {processorEnvironmentDir, transcribeInvocation} from '../dist/commands/transcribe.js';
+import {transcribeInvocation} from '../dist/commands/transcribe.js';
+import {processorEnvironmentDir} from '../dist/processor-runtime.js';
+import {subtitlesToTranscript} from '../dist/subtitles.js';
 import {ejectProject} from '../dist/commands/eject.js';
 import {doctorChecks, listTemplates} from '../dist/commands/doctor.js';
 import {devProject} from '../dist/commands/dev.js';
@@ -50,8 +52,8 @@ test('JSON boundaries reject malformed external data', () => {
 
   const root = initProject({dir: join(mkdtempSync(join(tmpdir(), 'yumoframe-json-')), 'project'), template: 'comedy-text'});
   const config = json(join(root, 'yumoframe.config.json'));
-  config.processors.asr.type = 'unknown';
-  assert.throws(() => parseConfig(JSON.stringify(config)), /type must be builtin or command/);
+  config.processors.asr.runner = 'unknown';
+  assert.throws(() => parseConfig(JSON.stringify(config)), /runner must be uv, command, or api/);
 
   const project = json(join(root, 'project.json'));
   project.timeline.virtualCanvas.width = 'wide';
@@ -203,7 +205,7 @@ test('render invocation uses the configured project and output', () => {
 });
 
 test('FunASR uses a versioned virtual environment outside the runtime', () => {
-  const environment = processorEnvironmentDir('0.1.0');
+  const environment = processorEnvironmentDir('funasr', '0.1.0');
   assert.equal(environment.endsWith(join('yumoframe', 'venvs', 'funasr', '0.1.0')), true);
   assert.equal(environment.includes(join('runtime', 'processors')), false);
 
@@ -212,7 +214,7 @@ test('FunASR uses a versioned virtual environment outside the runtime', () => {
     config: {
       runtimeVersion: '0.1.0',
       paths: {media: 'assets/input.mp4', transcript: 'transcript.json'},
-      processors: {asr: {type: 'builtin', options: {device: 'cpu', hotwords: '复读 20', maxSegmentMs: 12000}}},
+      processors: {asr: {runner: 'uv', name: 'funasr', options: {device: 'cpu', hotwords: '复读 20', maxSegmentMs: 12000}}},
     },
     outputBase: '/tmp/project/.transcript-tmp',
   });
@@ -220,6 +222,21 @@ test('FunASR uses a versioned virtual environment outside the runtime', () => {
   assert.equal(invocation.env.UV_PROJECT_ENVIRONMENT, environment);
   assert.ok(invocation.args.includes('--locked'));
   assert.ok(invocation.args.includes('12000'));
+});
+
+test('TTS subtitles parse into cue-level transcript segments (VTT and SRT)', () => {
+  const vtt = 'WEBVTT\n\n00:00:00.000 --> 00:00:00.500 align:start\n大家好\n\n00:00:00.500 --> 00:00:01.200\n今天讲个笑话\n';
+  assert.deepEqual(
+    subtitlesToTranscript(vtt).segments.map((s) => [s.start, s.end, s.text]),
+    [[0, 0.5, '大家好'], [0.5, 1.2, '今天讲个笑话']],
+  );
+  // edge-tts emits SRT: index line + comma millisecond separator.
+  const srt = '1\n00:00:00,100 --> 00:00:00,600\n大家好\n\n2\n00:00:00,600 --> 00:00:01,200\n今天讲个笑话\n';
+  assert.deepEqual(
+    subtitlesToTranscript(srt).segments.map((s) => [s.start, s.end, s.text]),
+    [[0.1, 0.6, '大家好'], [0.6, 1.2, '今天讲个笑话']],
+  );
+  assert.throws(() => subtitlesToTranscript('WEBVTT\n\n'), /No cues/);
 });
 
 test('eject copies the template and switches config to local', () => {

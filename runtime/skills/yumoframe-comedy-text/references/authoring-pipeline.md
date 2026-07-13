@@ -2,7 +2,7 @@
 
 Main checklist: [SKILL.md](../SKILL.md).
 
-1. **`lines.json`** — breaks, highlights, width (**not** clocks for media)
+1. **`lines.json`** — breaks, highlights, width (**not** clocks for media/TTS)
 2. **`storyboard.json`** — nest into `scenes[].lines` (text unchanged)
 
 Fast width check: `node scripts/line-units.mjs --file lines.json`. Then `yumoframe validate`.
@@ -17,7 +17,7 @@ Fast width check: `node scripts/line-units.mjs --file lines.json`. Then `yumofra
 
 ## lines.json
 
-Media (no clocks):
+Media / TTS (no clocks):
 
 ```json
 {
@@ -37,7 +37,7 @@ Media (no clocks):
 - Highlight ≤35% of chars; highlight **inside** the line, never a duplicate word as its own line
 - Lines with ≤2 units ≤25% of all lines
 - Never split inside a word/number
-- **Media: do not invent `start`/`end`** — `resolve` fills them from transcript
+- **Media / TTS: do not invent `start`/`end`** — `resolve` fills them from transcript
 - Text-only: author final sequential global clocks
 
 ## storyboard.json

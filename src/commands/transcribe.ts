@@ -1,43 +1,18 @@
 /** Run ASR on project media and extract a voice track for downstream alignment. */
-import {spawn} from 'node:child_process';
 import {existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync} from 'node:fs';
-import {homedir, platform} from 'node:os';
 import {basename, dirname, extname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {loadConfig} from '../config.js';
 import {parseTranscript} from '../json.js';
 import {formatTranscriptMd} from '../transcript-md.js';
-import type {Transcript, YumoFrameConfig} from '../types.js';
+import {type ProcessInvocation, optionFlags, processorEnvironmentDir, run} from '../processor-runtime.js';
+import type {YumoFrameConfig} from '../types.js';
 
 // Commands live in src/commands → package root is two levels up.
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** OS-specific cache root used for processor virtualenvs. */
-function cacheRoot(): string {
-  if (platform() === 'win32') return process.env.LOCALAPPDATA || resolve(homedir(), 'AppData', 'Local');
-  if (platform() === 'darwin') return resolve(homedir(), 'Library', 'Caches');
-  return process.env.XDG_CACHE_HOME || resolve(homedir(), '.cache');
-}
-
 /**
- * Path of the cached uv/venv environment for the funasr processor.
- * @param runtimeVersion Config `runtimeVersion` used as the env key.
- * @returns Absolute venv directory under the OS cache.
- */
-export function processorEnvironmentDir(runtimeVersion: string): string {
-  // Version-keyed so runtime bumps get a fresh venv.
-  return resolve(cacheRoot(), 'yumoframe', 'venvs', 'funasr', runtimeVersion);
-}
-
-/** Command, args, and env used to invoke the configured ASR processor. */
-export interface ProcessInvocation {
-  command: string;
-  args: string[];
-  env: NodeJS.ProcessEnv;
-}
-
-/**
- * Build the spawn invocation for built-in funasr or a custom ASR command.
+ * Build the spawn invocation for the configured ASR processor (uv funasr or a custom command).
  * @param options.root Project root.
  * @param options.config Loaded YumoFrame config.
  * @param options.outputBase Temp output basename (without extension) for the processor.
@@ -45,41 +20,29 @@ export interface ProcessInvocation {
  */
 export function transcribeInvocation({root, config, outputBase}: {root: string; config: YumoFrameConfig; outputBase: string}): ProcessInvocation {
   const asr = config.processors.asr;
-  if (asr.type === 'command') {
+  const mediaPath = resolve(root, config.paths.media);
+  if (asr.runner === 'command') {
     // Custom: command[0] is the executable; remaining args + media + outputBase.
-    if (!Array.isArray(asr.command) || asr.command.length === 0) throw new Error('processors.asr.command must be a non-empty array');
-    return {command: asr.command[0]!, args: [...asr.command.slice(1), resolve(root, config.paths.media), outputBase], env: {...process.env, ...asr.env}};
+    if (asr.command.length === 0) throw new Error('processors.asr.command must be a non-empty array');
+    return {command: asr.command[0]!, args: [...asr.command.slice(1), mediaPath, outputBase], env: {...process.env, ...asr.env}};
   }
-  if ((asr.name || 'funasr') !== 'funasr') throw new Error(`Unsupported built-in ASR processor: ${asr.name}`);
-  const options = asr.options ?? {};
+  if (asr.runner === 'api') throw new Error('ASR via the api runner is not supported; use runner "uv" (funasr) or "command"');
+  if (asr.name !== 'funasr') throw new Error(`Unsupported built-in ASR processor: ${asr.name}`);
   return {
-    command: asr.runner || 'uv',
+    command: asr.uvBin || 'uv',
     args: [
       'run', '--project', resolve(packageRoot, 'runtime', 'processors', 'funasr'), '--locked',
-      'media-text', resolve(root, config.paths.media), '-o', outputBase,
-      '--device', options.device || 'auto',
-      '--hotwords', options.hotwords || '',
-      '--max-segment-ms', String(options.maxSegmentMs || 30000),
+      'media-text', mediaPath, '-o', outputBase,
+      // options (device/hotwords/maxSegmentMs/model/…) forwarded as --kebab flags; CLI applies defaults.
+      ...optionFlags(asr.options),
     ],
     env: {
       ...process.env,
       ...asr.env,
-      // Pin uv's project env to the shared cache (not a local .venv).
-      UV_PROJECT_ENVIRONMENT: processorEnvironmentDir(config.runtimeVersion),
+      // Pin uv's project env to the shared cache (not a local .venv), keyed per engine.
+      UV_PROJECT_ENVIRONMENT: processorEnvironmentDir(asr.name, config.runtimeVersion),
     },
   };
-}
-
-function run(command: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<void> {
-  return new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(command, args, {env, stdio: 'inherit'});
-    child.on('error', reject);
-    child.on('exit', (code, signal) => {
-      if (signal) reject(new Error(`${command} terminated by ${signal}`));
-      else if (code !== 0) reject(new Error(`${command} exited with code ${code}`));
-      else resolvePromise();
-    });
-  });
 }
 
 /**
@@ -98,8 +61,8 @@ export async function transcribeProject(start = process.cwd()): Promise<{transcr
   mkdirSync(dirname(transcriptPath), {recursive: true});
   mkdirSync(dirname(voicePath), {recursive: true});
 
-  // Unique temp basename so parallel runs do not clobber each other.
-  const outputBase = resolve(dirname(transcriptPath), `.${basename(transcriptPath, extname(transcriptPath))}-${process.pid}-${Date.now()}`);
+  // Unique temp basename (visible, `yf-tmp-` prefixed) so parallel runs do not clobber each other.
+  const outputBase = resolve(dirname(transcriptPath), `yf-tmp-${basename(transcriptPath, extname(transcriptPath))}-${process.pid}-${Date.now()}`);
   const invocation = transcribeInvocation({root, config, outputBase});
   await run(invocation.command, invocation.args, invocation.env);
   // Processor writes `${outputBase}.json` (+ optional `.txt`); promote JSON to the config path.
@@ -123,7 +86,7 @@ export async function transcribeProject(start = process.cwd()): Promise<{transcr
 
   // Extract audio-only voice track, then atomically replace the target path.
   const extension = extname(voicePath) || '.m4a';
-  const temporaryVoice = resolve(dirname(voicePath), `.${basename(voicePath, extension)}-${process.pid}${extension}`);
+  const temporaryVoice = resolve(dirname(voicePath), `yf-tmp-${basename(voicePath, extension)}-${process.pid}${extension}`);
   await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', mediaPath, '-vn', temporaryVoice]);
   renameSync(temporaryVoice, voicePath);
   return {transcriptPath, transcriptMdPath, voicePath};

@@ -160,7 +160,7 @@ def wav_duration(path: Path) -> float:
         return audio.getnframes() / audio.getframerate()
 
 
-def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int) -> dict:
+def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int, model_name: str | None) -> dict:
     """
     Run Paraformer + VAD + punctuation on ``source`` and return a normalized transcript.
 
@@ -173,7 +173,7 @@ def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int) ->
         convert_to_wav(source, wav_path)
         duration = wav_duration(wav_path)
         model = AutoModel(
-            model="paraformer-zh",
+            model=model_name or "paraformer-zh",
             vad_model="fsmn-vad",
             punc_model="ct-punc",
             # Longer VAD windows reduce mid-phrase cuts for comedy-style delivery.
@@ -189,6 +189,51 @@ def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int) ->
             merge_length_s=15,
         )
         return normalize_results(results, duration)
+
+
+def normalize_alignment(results: list[dict], text: str, duration: float) -> dict:
+    """
+    Normalize forced-alignment output into ``transcript.json`` shape.
+
+    The FA model returns per-token ``[startMs, endMs]`` pairs for the GIVEN ``text``
+    (no recognition), so text is authoritative. Reuses the ASR punctuation splitter;
+    falls back to a single segment when token/timestamp counts disagree.
+    """
+    result = results[0] if results else {}
+    # NOTE: verify the FA output field against your FunASR version — some return
+    # "timestamp", others nest it differently. Adjust this one lookup if needed.
+    timestamps = result.get("timestamp") or []
+    segments = split_timestamped_text(text, timestamps)
+    if not segments:
+        segments = [
+            {
+                "start": timestamps[0][0] / 1000 if timestamps else 0,
+                "end": timestamps[-1][1] / 1000 if timestamps else duration,
+                "text": text.strip(),
+                "timestamp": timestamps,
+            }
+        ]
+    segments.sort(key=lambda segment: segment["start"])
+    return {"engine": "funasr-fa", "language": "zh", "duration": duration, "segments": segments}
+
+
+def align(source: Path, text: str, device: str, model_name: str | None) -> dict:
+    """
+    Force-align known ``text`` to ``source`` audio: assign timestamps without recognizing text.
+
+    Uses a FunASR forced-alignment model (default ``fa-zh``); text stays authoritative,
+    so the source and output text never diverge (unlike an ASR round-trip).
+    """
+    from funasr import AutoModel
+
+    with tempfile.TemporaryDirectory(prefix="media-text-fa-") as temp_dir:
+        wav_path = Path(temp_dir) / "audio.wav"
+        convert_to_wav(source, wav_path)
+        duration = wav_duration(wav_path)
+        model = AutoModel(model=model_name or "fa-zh", device=device)
+        # data_type marks the tuple as (audio, text); adjust if your FunASR version differs.
+        results = model.generate(input=(str(wav_path), text), data_type=("sound", "text"))
+        return normalize_alignment(results, text, duration)
 
 
 def write_outputs(payload: dict, output: Path) -> None:
@@ -213,6 +258,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--device", choices=["auto", "cpu", "mps", "cuda:0"], default="auto")
     parser.add_argument("--hotwords", default="", help='FunASR hotwords, for example: "复读 20 班主任 20"')
     parser.add_argument("--max-segment-ms", type=int, default=30000)
+    parser.add_argument("--model", default=None, help="Override the model (ASR default paraformer-zh; align default fa-zh).")
+    parser.add_argument("--align", type=Path, default=None, help="Forced-align mode: path to a text file to align against the audio.")
     return parser
 
 
@@ -225,7 +272,14 @@ def main(argv: list[str] | None = None) -> None:
     # Basename without extension: writes both .json and .txt beside it.
     output = (args.output or source.with_suffix("")).expanduser().resolve()
     device = choose_device(args.device)
-    print(f"Transcribing {source.name} with Paraformer-Large on {device}")
-    payload = transcribe(source, device, args.hotwords, args.max_segment_ms)
+    if args.align:
+        text = args.align.expanduser().read_text(encoding="utf-8").strip()
+        if not text:
+            raise SystemExit(f"Align text file is empty: {args.align}")
+        print(f"Force-aligning {source.name} to given text on {device}")
+        payload = align(source, text, device, args.model)
+    else:
+        print(f"Transcribing {source.name} with {args.model or 'Paraformer-Large'} on {device}")
+        payload = transcribe(source, device, args.hotwords, args.max_segment_ms, args.model)
     write_outputs(payload, output)
     print(f"Wrote {output.with_suffix('.json')} and {output.with_suffix('.txt')}")
