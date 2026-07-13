@@ -1,6 +1,6 @@
 {
   "name": "yumoframe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Remotion-based CLI for agent-authored kinetic vertical videos from text or media",
   "type": "module",
   "bin": {
@@ -23,7 +23,9 @@
     "layout": "pnpm build:cli && node dist/cli.js layout",
     "dev": "pnpm build:cli && node dist/cli.js dev",
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --dir runtime/templates/comedy-text typecheck",
-    "build": "pnpm build:cli && pnpm --dir runtime/templates/comedy-text build"
+    "build": "pnpm build:cli && pnpm --dir runtime/templates/comedy-text build",
+    "sync-version": "node scripts/sync-version.mjs",
+    "sync-version:runtime": "node scripts/sync-version.mjs --runtime"
   },
   "keywords": [
     "remotion",
