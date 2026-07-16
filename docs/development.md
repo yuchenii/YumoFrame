@@ -58,6 +58,21 @@ pnpm test           # build + node:test
 pnpm pack --dry-run # inspect the npm tarball (dist/ + runtime/)
 ```
 
+## Release
+
+Release It updates `package.json`, syncs the generated project config version, commits, creates an annotated `v*` tag, and pushes both the commit and tag. npm publishing runs only in GitHub Actions.
+
+```bash
+pnpm release patch              # package/config version only
+pnpm release minor
+pnpm release:runtime patch      # also invalidate cached processor venvs
+pnpm release patch --dry-run    # preview without changing Git or files
+```
+
+Use `release:runtime` only when an already-published `runtime/processors/**` implementation changed. The CLI reads its version directly from `package.json`, so it has no separate version string to bump.
+
+The npm package's Trusted Publisher must point to GitHub Actions owner `yuchenii`, repository `YumoFrame`, and workflow `publish.yml`. The workflow uses OIDC (`id-token: write`), so no long-lived `NPM_TOKEN` is stored in GitHub.
+
 ## Layout
 
 ```text

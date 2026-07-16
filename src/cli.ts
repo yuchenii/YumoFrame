@@ -2,7 +2,7 @@
 /**
  * YumoFrame CLI entry: Commander program wiring for init, resolve, studio, render, and related commands.
  */
-import {realpathSync} from 'node:fs';
+import {readFileSync, realpathSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Argument, Command, Option} from 'commander';
@@ -19,7 +19,7 @@ import {syncProjectFiles, type SyncTarget} from './commands/sync.js';
 import {validateCurrentProject} from './commands/validate.js';
 
 /** Installed package / CLI version string. */
-export const VERSION = '0.1.0';
+export const VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {version: string}).version;
 
 /** Run validation for the current project and print OK or throw aggregated errors. */
 function printValidation(): void {

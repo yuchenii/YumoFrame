@@ -24,8 +24,8 @@
     "dev": "pnpm build:cli && node dist/cli.js dev",
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --dir runtime/templates/comedy-text typecheck",
     "build": "pnpm build:cli && pnpm --dir runtime/templates/comedy-text build",
-    "sync-version": "node scripts/sync-version.mjs",
-    "sync-version:runtime": "node scripts/sync-version.mjs --runtime"
+    "release": "release-it",
+    "release:runtime": "release-it --hooks.after:bump=\"node scripts/sync-version.mjs --runtime\""
   },
   "keywords": [
     "remotion",
@@ -67,6 +67,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.1",
+    "release-it": "^20.2.1",
     "typescript": "6.0.2",
     "vite": "8.0.2"
   }

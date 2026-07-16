@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
+  "git": {
+    "requireBranch": "main",
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "push": true
+  },
+  "npm": {
+    "publish": false
+  },
+  "github": {
+    "release": false
+  },
+  "hooks": {
+    "before:init": [
+      "pnpm test",
+      "pnpm typecheck"
+    ],
+    "after:bump": "node scripts/sync-version.mjs"
+  }
+}

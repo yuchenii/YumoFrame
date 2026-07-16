@@ -25,7 +25,9 @@ import {parseConfig, parseProject, parseTranscript} from '../dist/json.js';
 import {parseSpeechPlan, resolveTtsProfile, validateSpeechPlan, validateTtsConfiguration} from '../dist/tts-plan.js';
 
 const json = (path) => JSON.parse(readFileSync(path, 'utf8'));
-const cliPath = join(dirname(fileURLToPath(import.meta.url)), '../dist/cli.js');
+const testDir = dirname(fileURLToPath(import.meta.url));
+const cliPath = join(testDir, '../dist/cli.js');
+const packageVersion = json(join(testDir, '../package.json')).version;
 
 async function withFakeMediaTools(root, callback) {
   const bin = join(root, 'fake-media-bin');
@@ -57,6 +59,10 @@ process.stdout.write(String(JSON.parse(readFileSync(process.argv.at(-1), 'utf8')
 }
 
 test('Commander exposes detailed help and rejects invalid choices', () => {
+  const version = spawnSync(process.execPath, [cliPath, '--version'], {encoding: 'utf8'});
+  assert.equal(version.status, 0, version.stderr);
+  assert.equal(version.stdout.trim(), packageVersion);
+
   const empty = spawnSync(process.execPath, [cliPath], {encoding: 'utf8'});
   assert.equal(empty.status, 0, empty.stderr);
   assert.match(empty.stdout, /Usage: yumoframe/);
@@ -446,7 +452,7 @@ const output = process.argv[process.argv.indexOf('-o') + 1];
 writeFileSync(output + '.json', JSON.stringify({version: 1, items: manifest.items.map((item) => ({
   id: item.id, valid: true, issues: [], transcript: {
     engine: 'fake-fa', language: 'zh', duration: 0.1,
-    segments: [{start: 0, end: 0.1, text: item.text, timestamp: [[0, 100]]}],
+    segments: [{start: 0, end: 0.1, text: item.text, timestamp: [[0, 33], [33, 66], [66, 100]]}],
   },
 }))}));
 `);

@@ -7,6 +7,7 @@ import {spawnSync} from 'node:child_process';
 const bin = process.argv[2];
 if (!bin) throw new Error('Usage: node test/packed-smoke.mjs <packed-yumoframe-bin>');
 const skipRender = process.argv.includes('--skip-render');
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 const env = process.env;
 const run = (args, cwd = process.cwd()) => {
@@ -15,7 +16,7 @@ const run = (args, cwd = process.cwd()) => {
   return result.stdout;
 };
 
-assert.equal(run(['--version']).trim(), '0.1.0');
+assert.equal(run(['--version']).trim(), packageVersion);
 assert.equal(run(['templates']).trim(), 'comedy-text');
 assert.match(run(['doctor']), /OK funasr/);
 
