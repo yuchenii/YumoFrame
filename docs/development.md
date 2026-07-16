@@ -41,7 +41,13 @@ npx skills add yuchenii/YumoFrame --skill yumoframe-comedy-text
 | `src/**` | `pnpm build:cli`, then re-run the CLI / `pnpm test` |
 | `runtime/templates/comedy-text/**` | No CLI rebuild; open `yumoframe studio` in a data project |
 | `runtime/processors/funasr/**` | No CLI rebuild; run `yumoframe transcribe` (ASR) or `synthesize` with `processors.align` (forced align). **Bump `runtimeVersion`** so the cached venv rebuilds with your Python changes |
+| `runtime/processors/qwen3-tts/**` | No CLI rebuild; run its unit tests or `yumoframe synthesize`. Plan mode loads once and writes ordered WAV fragments. **Bump `runtimeVersion`** when changing an already-released processor so its cached venv rebuilds |
+| `runtime/processors/tts-profiles.json` / `runtime/schemas/speech.schema.json` | Rebuild/test CLI and run `pnpm pack --dry-run`; these files are shared runtime contracts used by segmented TTS and the Skill |
 | `runtime/skills/**` | Re-run `npx skills add …` if your agent install was a copy; symlink installs pick up edits automatically |
+
+`runtime/processors/tts-profiles.json` is the single source of truth for model/profile-to-control mappings. The README may summarize current built-in mappings for users, but the Skill must call `yumoframe synthesize --capabilities` instead of copying that table; this keeps newly added profiles usable without another Skill edit. Every voiced TTS run initiated by the comedy-text Skill must create a reviewed clause-level `speech.json` and call `synthesize --plan`; direct whole-text synthesis is retained only as a CLI compatibility path.
+
+Plan timing is fragment-based: the TTS worker emits ordered fragments, one FunASR process aligns them independently, TypeScript offsets timestamps by each fragment's measured duration plus `pauseAfterMs`, and ffmpeg merges the same fragments. Never replace this with whole-track text matching or character-count timing; if any fragment alignment is implausible, recognize the final audio once through the configured ASR and require transcript review.
 
 ## Useful scripts
 
@@ -58,6 +64,7 @@ pnpm pack --dry-run # inspect the npm tarball (dist/ + runtime/)
 src/                              # TypeScript CLI (compiled to dist/)
 runtime/templates/comedy-text/    # packaged Remotion template
 runtime/processors/funasr/        # packaged Python engine: ASR + forced alignment (uv)
+runtime/processors/qwen3-tts/     # packaged Python engine: local Qwen3-TTS (uv)
 runtime/skills/yumoframe-comedy-text/
 runtime/schemas/
 test/                             # node:test suites against dist/

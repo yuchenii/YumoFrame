@@ -8,6 +8,7 @@ import type {ResolvedScene, TextLine, TextSegment, YumoFrameProject} from '../ty
 const maxBlockWidth = 760;
 const blockGap = 28;
 const cursorWidthEm = 0.66;
+const previewPadding = 200;
 
 const esc = (value: unknown): string =>
   String(value)
@@ -135,11 +136,23 @@ export function renderLayoutSvg(project: YumoFrameProject): string {
     })
     .join('\n');
 
-  const width = project.timeline?.virtualCanvas?.width ?? 40000;
-  const height = project.timeline?.virtualCanvas?.height ?? 40000;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<rect width="100%" height="100%" fill="${project.composition?.background ?? '#000000'}"/>
-<rect x="0" y="0" width="${width}" height="${height}" fill="none" stroke="#1f2937" stroke-width="8"/>
+  const virtualWidth = project.timeline?.virtualCanvas?.width ?? 40000;
+  const virtualHeight = project.timeline?.virtualCanvas?.height ?? 40000;
+  const bounds = positioned.length > 0
+    ? positioned.reduce((result, block) => ({
+      minX: Math.min(result.minX, block.centerX - block.box.width / 2),
+      minY: Math.min(result.minY, block.centerY - block.box.height / 2),
+      maxX: Math.max(result.maxX, block.centerX + block.box.width / 2),
+      maxY: Math.max(result.maxY, block.centerY + block.box.height / 2),
+    }), {minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity})
+    : {minX: 0, minY: 0, maxX: virtualWidth, maxY: virtualHeight};
+  const viewX = Math.floor(bounds.minX - previewPadding);
+  const viewY = Math.floor(bounds.minY - previewPadding);
+  const width = Math.ceil(bounds.maxX + previewPadding - viewX);
+  const height = Math.ceil(bounds.maxY + previewPadding - viewY);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${viewX} ${viewY} ${width} ${height}">
+<rect x="${viewX}" y="${viewY}" width="${width}" height="${height}" fill="${project.composition?.background ?? '#000000'}"/>
+<rect x="${viewX}" y="${viewY}" width="${width}" height="${height}" fill="none" stroke="#1f2937" stroke-width="8"/>
 ${textNodes}
 </svg>
 `;

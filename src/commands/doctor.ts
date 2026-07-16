@@ -28,7 +28,7 @@ export function listTemplates(): string[] {
 }
 
 /**
- * Run doctor checks for Node, uv, ffmpeg, comedy-text template, and funasr processor.
+ * Run doctor checks for Node, uv, ffmpeg, template, and bundled processors.
  * @param which Optional resolver for executables on `PATH` (defaults to `which`/`where`).
  * @returns Array of named check results.
  */
@@ -41,5 +41,6 @@ export function doctorChecks(which: (name: string) => string | null = findExecut
     // Bundled package assets, not PATH tools.
     {name: 'comedy-text', ok: listTemplates().includes('comedy-text'), detail: 'runtime template'},
     {name: 'funasr', ok: existsSync(resolve(PACKAGE_ROOT, 'runtime', 'processors', 'funasr', 'pyproject.toml')), detail: 'runtime processor'},
+    {name: 'qwen3-tts', ok: existsSync(resolve(PACKAGE_ROOT, 'runtime', 'processors', 'qwen3-tts', 'pyproject.toml')), detail: 'runtime processor'},
   ];
 }

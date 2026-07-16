@@ -50,25 +50,37 @@ export function resolveProject(
     throw new Error(`Missing ${storyboardPath} (author storyboard.json, then resolve)`);
   }
 
-  // Attach voice only when storyboard has no audio and the file exists.
+  // Prefer the configured synthesized track; preserve explicitly authored audio on media projects.
   const voicePath = resolve(root, config.paths.voice);
-  if (!storyboard.audio && existsSync(voicePath)) storyboard.audio = {src: config.paths.voice, source: 'user'};
+  const voiceSource = config.processors.tts && config.paths.voice === config.paths.media ? 'tts' : 'user';
+  if ((voiceSource === 'tts' || !storyboard.audio) && existsSync(voicePath)) {
+    storyboard.audio = {src: config.paths.voice, source: voiceSource};
+  }
 
   storyboard = sanitizeStoryboard(storyboard);
 
   const linesPath = resolve(root, pathOr(config, 'lines', 'lines.json'));
   // auto → align only when transcript.json is present; true forces, false skips.
   const shouldAlign = align === true || (align === 'auto' && existsSync(transcriptPath));
+  const transcript = existsSync(transcriptPath)
+    ? parseTranscript(readFileSync(transcriptPath, 'utf8'), transcriptPath)
+    : undefined;
   if (align === true && !existsSync(transcriptPath)) {
     warnings.push('transcript.json missing; skipped align');
   }
 
-  if (shouldAlign && existsSync(transcriptPath)) {
-    const timeline = buildCharTimeline(parseTranscript(readFileSync(transcriptPath, 'utf8'), transcriptPath));
+  if (shouldAlign && transcript) {
+    const timeline = buildCharTimeline(transcript);
     const flat = flattenScenes(storyboard.scenes);
     const aligned = alignStoryboardLines(flat, timeline);
     storyboard = nestAlignedLines(storyboard, aligned.lines);
     warnings.push(...aligned.warnings);
+  }
+
+  // TTS playback must not be cut off when the final spoken token ends before the audio track.
+  const transcriptDuration = Number(transcript?.duration);
+  if (storyboard.audio?.source === 'tts' && Number.isFinite(transcriptDuration)) {
+    storyboard.duration = Math.max(storyboard.duration ?? 0, transcriptDuration);
   }
 
   writeFileSync(storyboardPath, `${JSON.stringify(storyboard, null, 2)}\n`);
@@ -84,7 +96,7 @@ export function resolveProject(
 
   // Bootstrap transcript.md from JSON when the markdown layer is absent.
   if (existsSync(transcriptPath) && !existsSync(transcriptMdPath)) {
-    writeFileSync(transcriptMdPath, formatTranscriptMd(parseTranscript(readFileSync(transcriptPath, 'utf8'), transcriptPath)));
+    writeFileSync(transcriptMdPath, formatTranscriptMd(transcript!));
   }
 
   return {

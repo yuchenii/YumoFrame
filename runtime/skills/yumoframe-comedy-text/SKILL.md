@@ -39,7 +39,7 @@ In `project.md`, edit only scene grouping, bullet text, and `**highlight**` span
 ```text
 - [ ] Input type and destination confirmed (text / text-to-speech / audio / video)
 - [ ] Project initialized; media placed at config.paths.media, or text.txt written for TTS
-- [ ] For TTS: synthesized voice track; transcript derived or transcribe fallback run
+- [ ] For TTS: capabilities reviewed; `speech.json` shown and confirmed; synthesized voice track timing checked
 - [ ] transcript.md proofread and confirmed for media/TTS input
 - [ ] lines.json authored and checked
 - [ ] storyboard.json grouped without rewriting lines
@@ -66,19 +66,45 @@ yumoframe transcribe
 
 `transcribe` writes `transcript.json`, `transcript.md`, and the extracted original voice at `paths.voice`.
 
-For **text-to-speech** (make a voiced video from text), write the script to `text.txt` and synthesize. This uses `processors.tts` and, when the engine can, derives timing without ASR:
+For **text-to-speech** (make a voiced video from text), write the exact script to `text.txt`. Every voiced comedy-text project must use a reviewed `speech.json`; never recommend or run bare `yumoframe synthesize` from this Skill. The bare CLI path remains only for backward compatibility outside this workflow.
 
-```bash
-# Write text.txt (one script; punctuation is fine — it shapes prosody).
-yumoframe synthesize          # or: yumoframe tts
-```
+1. Read `yumoframe.config.json`, especially `processors.tts`, `paths.media`, `paths.voice`, and `paths.ttsText`, then run the read-only capability command:
 
-`synthesize` writes the voice track to `paths.media`. Read its output:
+   ```bash
+   yumoframe synthesize --capabilities
+   ```
 
-- **"Wrote … transcript.json (timing derived …)"** — timing came from TTS subtitles or forced alignment. Treat exactly like media: proofread `transcript.md`, author lines/storyboard **without clocks**, `resolve`.
-- **"Audio only; run yumoframe transcribe …"** — the engine gave audio only and no `processors.align` is set. Run `yumoframe transcribe` next, then proceed as media.
+2. Show `selected` (runner/provider, processor, model, profile, language, speaker/voice, device) before recommending anything. Use only `available.models`, `available.voices`, and `profile` from that output; never maintain or guess a separate model/voice list in this Skill.
+   - If the user supplied only a size/family such as `1.7B`, show matching available variants and ask them to choose the use case.
+   - If the chosen profile uses a preset speaker and none was specified, show `available.voices` with descriptions and ask for one.
+   - If the profile requires voice design, reference audio/text, API voice, or other config, request exactly the fields reported by capabilities.
+   - Inspect GPU/MPS only while comparing local model sizes. Skip hardware checks for `api` and `command` runners.
+3. Update `yumoframe.config.json`, rerun `--capabilities`, and show the final `selected` setup. Do not download or synthesize before the user confirms it.
+4. Mechanically split the exact source into short immutable delivery units. The helper preserves every character and cuts at sentence/clause punctuation, including commas, colons, semicolons, and dashes:
 
-Do not hand-write clocks for TTS; timing still comes only from `transcript.json`.
+   ```bash
+   node /path/to/this-skill/scripts/split-speech.mjs "$PWD/text.txt"
+   ```
+
+5. Inspect the units before assigning delivery. If one is still long or contains an internal change of speaker, emotion, emphasis, or pace, split it again at the exact semantic boundary without adding, deleting, or moving any character. Do not merge adjacent units just because their initial delivery looks similar.
+6. Create `speech.json` for every TTS project. Keep one atomic unit per segment so an expressive long sentence cannot accumulate timing drift internally. Assign each segment an engine-neutral `intent`, then compile exactly one `control` allowed by `profile.controls` / `profile.controlOptions`. Default `pauseAfterMs` to `0`; add it only when the user wants extra silence beyond the punctuation's natural pause. Never invent unsupported fields or silently discard delivery intent.
+7. Verify that concatenating all `segments[].text` exactly reproduces the configured source, including whitespace and final newline. Show the complete plan and stop. If the selected profile cannot run multiple segments or express the requested controls, ask the user to switch to a compatible model/provider; do not bypass the plan with whole-text synthesis.
+8. Only after explicit plan approval:
+
+   ```bash
+   yumoframe synthesize --plan speech.json
+   ```
+
+The CLI generates ordered fragments, aligns each fragment independently, then offsets its timestamps by the real preceding fragment durations and `pauseAfterMs`. It never estimates clocks from character counts. Local plan-aware processors load the model once; online providers may make ordered requests.
+
+Read the JSON result from `synthesize` and show its `tts`, `duration`, `timingMode`, `lastTimestamp`, `coverage`, and `reviewRequired` fields:
+
+- `fragment-align`: inspect `coverage`, spot-check the last segment against playback, then show `transcript.md` for confirmation.
+- `asr-fallback`: timing came from recognizing the final audio; `reviewRequired` must be true. Proofread the spoken text before continuing.
+- `audio-only`: run `yumoframe transcribe` before continuing.
+- `whole-align`: valid CLI compatibility output, but it indicates this Skill skipped the mandatory plan; stop and correct the workflow.
+
+`synthesize` automatically updates both `paths.media` and `paths.voice` to the actual generated project-local file. Do not copy the file or hand-edit those paths. Do not hand-write TTS clocks; `transcript.json` remains the only timing source.
 
 For **text-only** input, skip audio entirely and author sequential global `start`/`end` seconds. Use roughly 0.06–0.18 seconds per character plus a short hold; keep every `end > start`.
 
@@ -87,7 +113,8 @@ For **text-only** input, skip audio entirely and author sequential global `start
 Edit only `校对：` lines in `transcript.md`:
 
 - Fix ASR homophones, word breaks, and obvious recognition errors.
-- For TTS-derived transcripts the text already matches `text.txt`, so this pass is mostly confirmatory — just fix any odd segmentation.
+- For the mandatory TTS plan, `timingMode` should normally be `fragment-align`. Matching `text.txt` alone is not proof of correct timing: compare `duration`, `lastTimestamp`, and `coverage`, then spot-check at least the final delivery unit against playback.
+- Forced-aligned TTS should appear as clause-sized review sections while retaining character timestamps. A whole script in one section, a large uncovered tail, or visibly late/early final text indicates a timing failure; fix or regenerate alignment instead of asking the user to approve a matching text blob.
 - Leave `校对：` empty for non-speech/noise segments that should be dropped.
 - Preserve headings, clocks, and `原文：` text.
 - Do not add performance line breaks or highlights yet.
@@ -166,8 +193,12 @@ Render validates again before starting Remotion.
 | Failure | Return to |
 |---------|-----------|
 | Missing/poor ASR text | media path, `transcribe`, or `transcript.md` |
-| TTS made audio but no `transcript.json` | run `yumoframe transcribe`, or set `processors.align` for forced alignment |
-| TTS voice/quality wrong | `text.txt` and `processors.tts` (voice/model/provider) in config |
+| TTS result is `audio-only` or has no `transcript.json` | run `yumoframe transcribe`; do not continue from guessed clocks |
+| TTS result is `asr-fallback` | proofread the actual recognized delivery in `transcript.md`; text equality with `text.txt` is not assumed |
+| TTS result is `whole-align` | the Skill skipped mandatory `speech.json`; return to the TTS plan step |
+| TTS voice/quality wrong | `text.txt` and `processors.tts.options` (`model`, `speaker`, `instruct`, `refAudio`, `refText`) in config |
+| VoiceDesign says `instruct` is required | add a concrete voice/style description after user approval |
+| Base says `ref-audio` is required | set a project-relative reference audio path; add matching `refText` for better quality |
 | Width, punctuation, highlight, or tiny-line error | `lines.json` |
 | Too many/few lines per scene | `storyboard.json` grouping |
 | `align miss` / overlap warning | duplicated highlight line, mid-word cut, or transcript 校对 |

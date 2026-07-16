@@ -86,6 +86,7 @@ function processor(value: unknown, label: string): void {
   const spec = record(value, label);
   const runner = stringField(spec, 'runner', label);
   if (!['uv', 'command', 'api'].includes(runner)) throw new Error(`${label}.runner must be uv, command, or api`);
+  optionalString(spec, 'profile', label);
   processorEnv(spec, label);
   if (runner === 'uv') {
     stringField(spec, 'name', label);

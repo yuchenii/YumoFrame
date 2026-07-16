@@ -29,7 +29,7 @@ export function initProject({dir, template}: {dir: string; template: string}): s
     templateSource: 'runtime',
     templatePath: null,
     paths: {
-      media: 'assets/input.mp4',
+      media: 'assets/input.wav',
       voice: 'assets/voice.m4a',
       ttsText: 'text.txt',
       transcript: 'transcript.json',
@@ -50,17 +50,25 @@ export function initProject({dir, template}: {dir: string; template: string}): s
         env: {},
         options: {device: 'auto', hotwords: '', maxSegmentMs: 30000},
       },
-      // Default TTS: edge-tts via uvx — install-free (only needs uv), no API key.
-      // {subs} makes edge-tts emit subtitles → transcript timing without an ASR round-trip.
-      // Version floor: older edge-tts builds 403 (Microsoft rotates the Sec-MS-GEC token);
-      // if it 403s again later, run once with `uvx --refresh …` or raise the floor.
-      // For API TTS swap to: {runner:'api', provider:'qwen3-tts', model, voice, apiKeyEnv}.
+      // Default local TTS: Qwen3-TTS 0.6B CustomVoice with the Mandarin Vivian voice.
       tts: {
-        runner: 'command',
-        command: ['uvx', '--from', 'edge-tts>=7.2.8', 'edge-tts', '--voice', 'zh-CN-YunxiNeural', '--text', '{text}', '--write-media', '{out}', '--write-subtitles', '{subs}'],
+        runner: 'uv',
+        name: 'qwen3-tts',
+        env: {},
+        options: {
+          model: 'Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice',
+          language: 'Chinese',
+          speaker: 'Vivian',
+          device: 'auto',
+        },
       },
-      // Optional forced aligner for API TTS that returns audio only (audio + known text → transcript.json).
-      // e.g. {runner:'command', command:['my-aligner']} receiving audioPath textPath outputBase.
+      // Qwen emits audio without clocks: align the known source text instead of recognizing it again.
+      align: {
+        runner: 'uv',
+        name: 'funasr',
+        env: {},
+        options: {model: 'fa-zh', device: 'auto'},
+      },
     },
   });
   // Text source for `yumoframe synthesize`.

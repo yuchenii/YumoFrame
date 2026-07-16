@@ -144,17 +144,12 @@ export function getSceneFitFraming(project: YumoFrameProject, scene: Scene, time
   };
 }
 
-/** Bounds of all text plus an overview zoom anchor near the last scene edge. */
+/** Bounds and center of all text in the overview camera's rotated coordinate space. */
 function getOverviewLayout(project: YumoFrameProject, rotate: number) {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  let lastMinX = Infinity;
-  let lastMinY = Infinity;
-  let lastMaxX = -Infinity;
-  let lastMaxY = -Infinity;
-  const lastScene = project.timeline.scenes.at(-1);
 
   for (const scene of project.timeline.scenes) {
     for (const element of scene.elements) {
@@ -177,24 +172,12 @@ function getOverviewLayout(project: YumoFrameProject, rotate: number) {
         minY = Math.min(minY, point.y);
         maxX = Math.max(maxX, point.x);
         maxY = Math.max(maxY, point.y);
-
-        if (scene === lastScene) {
-          lastMinX = Math.min(lastMinX, point.x);
-          lastMinY = Math.min(lastMinY, point.y);
-          lastMaxX = Math.max(lastMaxX, point.x);
-          lastMaxY = Math.max(lastMaxY, point.y);
-        }
       }
     }
   }
 
   return {
-    // Zoom out from the last scene's outer edge (away from the stack center).
-    anchor: rotatePoint(
-      (lastMinX + lastMaxX) / 2 >= (minX + maxX) / 2 ? lastMaxX : lastMinX,
-      (lastMinY + lastMaxY) / 2 >= (minY + maxY) / 2 ? lastMaxY : lastMinY,
-      -rotate,
-    ),
+    center: rotatePoint((minX + maxX) / 2, (minY + maxY) / 2, -rotate),
     rotatedBounds: { minX, minY, maxX, maxY },
   };
 }
@@ -207,7 +190,6 @@ function getScreenPoint(
   width: number,
   height: number,
 ) {
-  // World → screen: scale about target, then rotate about pivot.
   const beforeRotation = {
     x: width / 2 + camera.scale * (point.x - camera.targetX),
     y: height / 2 + camera.scale * (point.y - camera.targetY),
@@ -216,9 +198,8 @@ function getScreenPoint(
   return { x: pivotX + rotated.x, y: pivotY + rotated.y };
 }
 
-/** Invert screen mapping so `anchor` stays fixed while scale changes. */
-function getFixedAnchorTarget(
-  anchor: { x: number; y: number },
+function getTargetForScreenPoint(
+  point: { x: number; y: number },
   screen: { x: number; y: number },
   scale: number,
   rotate: number,
@@ -228,36 +209,10 @@ function getFixedAnchorTarget(
   height: number,
 ) {
   const unrotated = rotatePoint(screen.x - pivotX, screen.y - pivotY, -rotate);
-  // Solve for targetX/Y that map `anchor` onto the remembered screen point.
   return {
-    targetX: anchor.x - (pivotX + unrotated.x - width / 2) / scale,
-    targetY: anchor.y - (pivotY + unrotated.y - height / 2) / scale,
+    targetX: point.x - (pivotX + unrotated.x - width / 2) / scale,
+    targetY: point.y - (pivotY + unrotated.y - height / 2) / scale,
   };
-}
-
-/** Max scale that keeps all bounds on-screen with the given anchored screen point. */
-function getAnchoredOverviewScale(
-  bounds: { minX: number; minY: number; maxX: number; maxY: number },
-  anchor: { x: number; y: number },
-  screen: { x: number; y: number },
-  rotate: number,
-  width: number,
-  height: number,
-) {
-  const rotatedAnchor = rotatePoint(anchor.x, anchor.y, rotate);
-  const limits = [1];
-  const left = rotatedAnchor.x - bounds.minX;
-  const right = bounds.maxX - rotatedAnchor.x;
-  const top = rotatedAnchor.y - bounds.minY;
-  const bottom = bounds.maxY - rotatedAnchor.y;
-
-  // Each side: max scale so that edge stays inside padded viewport from the anchor.
-  if (left > 0) limits.push((screen.x - OVERVIEW_PADDING) / left);
-  if (right > 0) limits.push((width - OVERVIEW_PADDING - screen.x) / right);
-  if (top > 0) limits.push((screen.y - OVERVIEW_PADDING) / top);
-  if (bottom > 0) limits.push((height - OVERVIEW_PADDING - screen.y) / bottom);
-
-  return Math.max(0.01, Math.min(...limits));
 }
 
 /** Adjust target so rotation about a non-center pivot keeps framing correct. */
@@ -343,7 +298,7 @@ export function getCamera(project: YumoFrameProject, scene: Scene | undefined, f
 
   if (project.endOverview !== false && scene === lastScene && time >= overviewStart) {
     const overview = getOverviewLayout(project, scene.camera.rotate);
-    // Freeze line-fit at overview start, then pull out with a fixed screen anchor.
+    // Freeze line-fit at overview start, then pull out to a centered contain fit.
     const overviewFit = getSceneFitFraming(project, scene, overviewStart);
     const overviewPivotTarget = getPivotAdjustedTarget(
       withFit(scene, overviewFit),
@@ -352,35 +307,38 @@ export function getCamera(project: YumoFrameProject, scene: Scene | undefined, f
       project.composition.width,
       project.composition.height,
     );
-    const currentCamera = {
+    const overviewStartCamera = {
       ...withFit(scene, overviewFit),
       targetX: overviewPivotTarget.targetX,
       targetY: overviewPivotTarget.targetY,
-      pivotX,
-      pivotY,
     };
-    const anchorScreen = getScreenPoint(
-      overview.anchor,
-      currentCamera,
+    const overviewCenterStart = getScreenPoint(
+      overview.center,
+      overviewStartCamera,
       pivotX,
       pivotY,
       project.composition.width,
       project.composition.height,
     );
-    const overviewScale = getAnchoredOverviewScale(
-      overview.rotatedBounds,
-      overview.anchor,
-      anchorScreen,
-      scene.camera.rotate,
-      project.composition.width,
-      project.composition.height,
+    const overviewWidth = Math.max(overview.rotatedBounds.maxX - overview.rotatedBounds.minX, 1);
+    const overviewHeight = Math.max(overview.rotatedBounds.maxY - overview.rotatedBounds.minY, 1);
+    const overviewScale = Math.max(
+      0.01,
+      Math.min(
+        1,
+        (project.composition.width - 2 * OVERVIEW_PADDING) / overviewWidth,
+        (project.composition.height - 2 * OVERVIEW_PADDING) / overviewHeight,
+      ),
     );
     const overviewLinear = Math.min(1, (time - overviewStart) / OVERVIEW_ZOOM_SECONDS);
-    const overviewProgress = 1 - (1 - overviewLinear) ** 3;
-    const scale = interpolate(overviewProgress, [0, 1], [overviewFit.scale, overviewScale]);
-    const target = getFixedAnchorTarget(
-      overview.anchor,
-      anchorScreen,
+    const zoomProgress = 1 - (1 - overviewLinear) ** 3;
+    const scale = interpolate(zoomProgress, [0, 1], [overviewFit.scale, overviewScale]);
+    const target = getTargetForScreenPoint(
+      overview.center,
+      {
+        x: interpolate(zoomProgress, [0, 1], [overviewCenterStart.x, project.composition.width / 2]),
+        y: interpolate(zoomProgress, [0, 1], [overviewCenterStart.y, project.composition.height / 2]),
+      },
       scale,
       scene.camera.rotate,
       pivotX,

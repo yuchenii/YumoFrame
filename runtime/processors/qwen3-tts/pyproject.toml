@@ -1,0 +1,22 @@
+[project]
+name = "yumoframe-qwen3-tts"
+version = "0.1.0"
+description = "Synthesize speech with the bundled Qwen3-TTS processor."
+requires-python = ">=3.10"
+dependencies = [
+  "qwen-tts>=0.1.1,<0.2",
+  "torch>=2.2",
+]
+
+[project.scripts]
+qwen3-tts = "qwen3_tts_processor.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qwen3_tts_processor"]
+
+[tool.uv]
+package = true

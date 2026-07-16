@@ -16,9 +16,10 @@ function pathOr(config: YumoFrameConfig, key: string, fallback: string): string 
 
 function attachVoice(storyboard: Storyboard, root: string, config: YumoFrameConfig): Storyboard {
   const voicePath = resolve(root, config.paths.voice);
-  // Only attach when storyboard has no audio yet and the voice file is on disk.
-  if (!storyboard.audio && existsSync(voicePath)) {
-    return {...storyboard, audio: {src: config.paths.voice, source: 'user'}};
+  const voiceSource = config.processors.tts && config.paths.voice === config.paths.media ? 'tts' : 'user';
+  // Preserve authored audio, but keep previously attached TTS audio in sync with config.
+  if ((!storyboard.audio || storyboard.audio.source === 'tts') && existsSync(voicePath)) {
+    return {...storyboard, audio: {src: config.paths.voice, source: voiceSource}};
   }
   return storyboard;
 }

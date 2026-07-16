@@ -12,7 +12,7 @@ import {ejectProject} from './commands/eject.js';
 import {initProject} from './commands/init.js';
 import {layoutProject} from './commands/layout.js';
 import {renderProject} from './commands/render.js';
-import {synthesizeProject} from './commands/synthesize.js';
+import {synthesizeCapabilities, synthesizeProject} from './commands/synthesize.js';
 import {transcribeProject} from './commands/transcribe.js';
 import {resolveProject} from './commands/resolve.js';
 import {syncProjectFiles, type SyncTarget} from './commands/sync.js';
@@ -78,21 +78,27 @@ Input and outputs are read from yumoframe.config.json:
     .description('synthesize a voice track from text via the configured TTS processor')
     .option('--text <text>', 'inline text to synthesize (overrides the input file)')
     .option('--input <file>', 'text file to read (default: config.paths.ttsText or text.txt)')
-    .option('--out <file>', 'output audio path (default: config.paths.media)')
+    .option('--plan <file>', 'reviewed speech.json delivery plan')
+    .option('--capabilities', 'print resolved TTS delivery capabilities as JSON and exit')
+    .option('--out <file>', 'project-local output audio path (default: config.paths.media)')
     .addHelpText('after', `
 Reads processors.tts from yumoframe.config.json:
-  runner "api"      OpenAI-compatible /audio/speech (set the key env, e.g. DASHSCOPE_API_KEY)
+  runner "uv"       bundled local processor, default: Qwen3-TTS 0.6B CustomVoice
+  runner "api"      online HTTP TTS (native DashScope or OpenAI-compatible; set the key env)
   runner "command"  external CLI with {text}/{out}/{subs} placeholders, e.g. uvx edge-tts
 
 Timing (skips ASR when possible):
   1. {subs} in the command → TTS subtitles become transcript.json directly
-  2. else processors.align (forced align: audio + known text) → transcript.json
-  3. else audio only → run "yumoframe transcribe" afterwards`)
-    .action(async (options: {text?: string; input?: string; out?: string}) => {
+  2. speech.json fragments → one FunASR manifest alignment, then merge clocks + pauses
+  3. whole audio → validated processors.align (default: FunASR fa-zh)
+  4. rejected alignment → final-audio ASR; unavailable ASR → audio only`)
+    .action(async (options: {text?: string; input?: string; plan?: string; capabilities?: boolean; out?: string}) => {
+      if (options.capabilities) {
+        console.log(JSON.stringify(synthesizeCapabilities(), null, 2));
+        return;
+      }
       const result = await synthesizeProject(options);
-      console.log(`Wrote ${result.outputPath}`);
-      if (result.transcriptPath) console.log(`Wrote ${result.transcriptPath} (timing derived — run "yumoframe resolve", which auto-aligns)`);
-      else console.log('Audio only; run "yumoframe transcribe" to get timing.');
+      console.log(JSON.stringify(result));
     });
 
   program
