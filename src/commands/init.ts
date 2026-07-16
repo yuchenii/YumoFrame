@@ -23,8 +23,8 @@ export function initProject({dir, template}: {dir: string; template: string}): s
   // Default path conventions used by the rest of the CLI.
   writeJson(resolve(root, 'yumoframe.config.json'), {
     framework: 'yumoframe',
-    version: '0.1.1',
-    runtimeVersion: '0.1.1',
+    version: '0.1.2',
+    runtimeVersion: '0.1.2',
     template,
     templateSource: 'runtime',
     templatePath: null,

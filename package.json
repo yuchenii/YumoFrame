@@ -1,6 +1,6 @@
 {
   "name": "yumoframe",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Remotion-based CLI for agent-authored kinetic vertical videos from text or media",
   "type": "module",
   "bin": {
