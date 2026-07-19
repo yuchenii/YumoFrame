@@ -8,6 +8,7 @@ node_modules/
 
 # Build & render output
 dist/
+adapter-dist/
 out/
 *.tsbuildinfo
 

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "yumoframe.preset.v1",
+  "id": "echo",
+  "name": "Echo",
+  "description": "Keeps previous lines as fading text echoes.",
+  "style": {
+    "background": "#0B0D12",
+    "textColor": "#F4F7FF",
+    "emphasisColor": "#8CD7FF",
+    "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+    "fontSize": 104,
+    "transition": "fade",
+    "historyLines": 4,
+    "echoOpacity": 0.2
+  }
+}

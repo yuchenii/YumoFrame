@@ -8,7 +8,7 @@ Add Alibaba Cloud Model Studio's native non-realtime Qwen TTS HTTP API to the ex
 
 Use Node's existing `fetch` path, not the DashScope Python SDK. The CLI already owns API authentication, output files, segmented requests, merging, and alignment in TypeScript. A Python SDK would add a uv environment and another process without removing any Node responsibilities.
 
-`provider: "dashscope"` is the documented name. Keep `provider: "qwen3-tts"` as an alias so existing project configuration continues to work.
+`provider: "dashscope"` is the only documented DashScope provider name (no legacy aliases).
 
 ## Configuration
 

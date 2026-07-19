@@ -1,4 +1,7 @@
 packages:
-  - runtime/templates/*
+  - packages/cli
+  - packages/templates/*
 allowBuilds:
   esbuild: true
+# ponytail: scripts never mutate node_modules; run pnpm install after dependency changes.
+verifyDepsBeforeRun: false

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "yumoframe.template.v1",
+  "id": "center-line",
+  "name": "Center Line",
+  "description": "Linear centered text with template-owned visual presets.",
+  "adapter": "adapter-dist/index.js",
+  "entry": "src/index.tsx",
+  "compositionId": "CenterLineVideo",
+  "authoringGuide": "authoring.md",
+  "schemas": {
+    "storyboard": "schemas/storyboard.schema.json",
+    "project": "schemas/project.schema.json"
+  },
+  "defaults": { "storyboard": "defaults/storyboard.json" },
+  "presets": {
+    "minimal-dark": "presets/minimal-dark.json",
+    "echo": "presets/echo.json"
+  }
+}

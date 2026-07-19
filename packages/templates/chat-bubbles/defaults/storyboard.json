@@ -1,0 +1,24 @@
+{
+  "version": "0.1.0",
+  "template": "chat-bubbles",
+  "participants": [
+    { "id": "friend", "name": "朋友", "side": "left" },
+    { "id": "me", "name": "我", "side": "right" }
+  ],
+  "messages": [
+    {
+      "id": "message-001",
+      "speaker": "friend",
+      "type": "text",
+      "text": "你到哪了？",
+      "pauseAfterMs": 500
+    },
+    {
+      "id": "message-002",
+      "speaker": "me",
+      "type": "text",
+      "text": "刚准备出门。",
+      "pauseAfterMs": 900
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Segmented TTS Delivery Design
 
+> **Path note (2026-07):** Design-time paths below may still say `runtime/…` or `comedy-text`. Current tree uses `processors/tts-profiles.json`, `skills/yumoframe/`, and template id `rotating-flow` (plus `center-line` / `chat-bubbles`). Treat this document as historical design intent.
+
 ## Goal
 
 Require the authoring Skill to turn `text.txt` into a reviewable, model-aware speech plan whose short clause-level units can use different delivery. Generate all units without repeatedly loading a local model, align each generated fragment independently, then merge them into one voice track.
@@ -72,7 +74,7 @@ The engine-neutral intent has a deliberately small contract: `emotion` is a non-
 The speech schema uses a tagged union. Each control type has its own fields and validation:
 
 | Profile | Control | Rules |
-|---|---|---|
+| --- | --- | --- |
 | Qwen3-TTS CustomVoice | `qwen-instruct` | Non-empty `instruct`; preset `speaker` remains in project config |
 | Qwen3-TTS VoiceDesign | `qwen-voice-design` | Non-empty `instruct`; the Skill combines the stable `voice.description` with the segment intent in every section |
 | Qwen3-TTS Base | `none` | No delivery instruction; reference audio/text remain in project config |
@@ -144,7 +146,7 @@ Inserted `pauseAfterMs` silence is added after fragment alignment and is part of
 
 All validation runs before model loading, downloads, API calls, or output replacement:
 
-1. Validate `speech.json` against `runtime/schemas/speech.schema.json`.
+1. Validate `speech.json` against `schemas/speech.schema.json`.
 2. Resolve the active TTS profile from project config.
 3. Verify every `control.type` is accepted by that profile.
 4. Validate model-specific formats and ranges, including required instructions, IndexTTS2 emotion values, edge-tts signed prosody strings, and known API request fields.

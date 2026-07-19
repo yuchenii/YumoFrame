@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yumoframe.dev/schemas/speech.schema.json",
+  "type": "object",
+  "required": ["version", "source", "segments"],
+  "properties": {
+    "version": { "const": "0.1.0" },
+    "source": { "type": "string", "minLength": 1 },
+    "voice": {
+      "type": "object",
+      "required": ["description"],
+      "properties": { "description": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "intent", "control", "pauseAfterMs"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "intent": {
+            "type": "object",
+            "required": ["emotion", "intensity", "pace"],
+            "properties": {
+              "emotion": { "type": "string", "minLength": 1 },
+              "intensity": { "type": "number", "minimum": 0, "maximum": 1 },
+              "pace": { "enum": ["slow", "normal", "fast"] },
+              "note": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "control": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": ["type"],
+                "properties": { "type": { "const": "none" } },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "instruct"],
+                "properties": {
+                  "type": { "enum": ["qwen-instruct", "qwen-voice-design"] },
+                  "instruct": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "emoText", "emoAlpha"],
+                "properties": {
+                  "type": { "const": "indextts2-emo-text" },
+                  "emoText": { "type": "string", "minLength": 1 },
+                  "emoAlpha": { "type": "number", "minimum": 0, "maximum": 1 }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "emoVector"],
+                "properties": {
+                  "type": { "const": "indextts2-emo-vector" },
+                  "emoVector": {
+                    "type": "array",
+                    "minItems": 8,
+                    "maxItems": 8,
+                    "items": { "type": "number", "minimum": 0, "maximum": 0.8 }
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "emoAudio", "emoAlpha"],
+                "properties": {
+                  "type": { "const": "indextts2-emo-audio" },
+                  "emoAudio": { "type": "string", "minLength": 1 },
+                  "emoAlpha": { "type": "number", "minimum": 0, "maximum": 1 }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "rate", "pitch", "volume"],
+                "properties": {
+                  "type": { "const": "edge-prosody" },
+                  "rate": { "type": "string", "pattern": "^[+-]\\d+%$" },
+                  "pitch": { "type": "string", "pattern": "^[+-]\\d+Hz$" },
+                  "volume": { "type": "string", "pattern": "^[+-]\\d+%$" }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "instructions"],
+                "properties": {
+                  "type": { "const": "dashscope-instruct" },
+                  "instructions": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["type", "instructions", "speed"],
+                "properties": {
+                  "type": { "const": "openai-speech" },
+                  "instructions": { "type": "string", "minLength": 1 },
+                  "speed": { "type": "number", "minimum": 0.25, "maximum": 4 }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "pauseAfterMs": { "type": "integer", "minimum": 0, "maximum": 10000 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

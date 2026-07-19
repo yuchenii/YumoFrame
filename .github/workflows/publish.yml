@@ -3,7 +3,7 @@ name: Publish npm
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: read
@@ -31,5 +31,6 @@ jobs:
           test "v${PACKAGE_VERSION}" = "${GITHUB_REF_NAME}"
       - run: pnpm test
       - run: pnpm typecheck
-      - run: pnpm pack --dry-run
+      - run: pnpm build
+      - run: pnpm test:pack
       - run: npm publish

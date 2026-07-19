@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "yumoframe.preset.v1",
+  "id": "minimal-dark",
+  "name": "Minimal Dark",
+  "description": "Shows only the active line on a quiet dark field.",
+  "style": {
+    "background": "#101114",
+    "textColor": "#F5F3EE",
+    "emphasisColor": "#FFCE5C",
+    "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+    "fontSize": 108,
+    "transition": "fade",
+    "historyLines": 0,
+    "echoOpacity": 0
+  }
+}

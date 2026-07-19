@@ -13,10 +13,7 @@
     "release": false
   },
   "hooks": {
-    "before:init": [
-      "pnpm test",
-      "pnpm typecheck"
-    ],
+    "before:init": ["pnpm test", "pnpm typecheck"],
     "after:bump": "node scripts/sync-version.mjs"
   }
 }

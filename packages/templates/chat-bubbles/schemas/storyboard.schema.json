@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Chat Bubbles Storyboard",
+  "type": "object",
+  "required": ["version", "template", "participants", "messages"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "template": { "const": "chat-bubbles" },
+    "participants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "side"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "side": { "enum": ["left", "right"] },
+          "avatar": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "speaker", "type", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "speaker": { "type": "string", "minLength": 1 },
+          "type": { "const": "text" },
+          "text": { "type": "string", "minLength": 1 },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "exclusiveMinimum": 0 },
+          "durationMs": { "type": "number", "exclusiveMinimum": 0 },
+          "pauseAfterMs": { "type": "number", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

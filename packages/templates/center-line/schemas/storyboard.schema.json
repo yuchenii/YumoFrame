@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Center Line Storyboard",
+  "type": "object",
+  "required": ["version", "template", "lines"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string" },
+    "template": { "const": "center-line" },
+    "style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "background": { "type": "string", "minLength": 1 },
+        "textColor": { "type": "string", "minLength": 1 },
+        "emphasisColor": { "type": "string", "minLength": 1 },
+        "fontFamily": { "type": "string", "minLength": 1 },
+        "fontSize": { "type": "number", "exclusiveMinimum": 0 },
+        "transition": { "const": "fade" },
+        "historyLines": { "type": "integer", "minimum": 0 },
+        "echoOpacity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1 },
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "exclusiveMinimum": 0 },
+          "emphasis": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

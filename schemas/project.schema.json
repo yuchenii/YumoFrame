@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yumoframe.dev/schemas/project.schema.json",
+  "description": "Resolved rotating-flow render contract.",
+  "type": "object",
+  "required": ["version", "template", "composition", "source", "theme", "timeline"],
+  "properties": {
+    "version": { "const": "0.1.0" },
+    "template": { "const": "rotating-flow" },
+    "endOverview": { "type": "boolean" },
+    "composition": { "type": "object" },
+    "source": { "type": "object" },
+    "theme": { "type": "object" },
+    "audio": { "type": "object" },
+    "timeline": { "type": "object" }
+  },
+  "additionalProperties": false
+}

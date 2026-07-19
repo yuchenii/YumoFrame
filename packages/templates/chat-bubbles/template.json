@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "yumoframe.template.v1",
+  "id": "chat-bubbles",
+  "name": "Chat Bubbles",
+  "description": "Text conversations with participants, avatars, pauses, and scrolling bubbles.",
+  "adapter": "adapter-dist/index.js",
+  "entry": "src/index.tsx",
+  "compositionId": "ChatBubblesVideo",
+  "authoringGuide": "authoring.md",
+  "schemas": {
+    "storyboard": "schemas/storyboard.schema.json",
+    "project": "schemas/project.schema.json"
+  },
+  "defaults": { "storyboard": "defaults/storyboard.json" },
+  "presets": {}
+}

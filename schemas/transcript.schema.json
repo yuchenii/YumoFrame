@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://yumoframe.dev/schemas/transcript.schema.json",
+  "type": "object",
+  "required": ["engine", "language", "duration", "segments"],
+  "properties": {
+    "engine": { "type": "string" },
+    "language": { "type": "string" },
+    "duration": { "type": "number", "minimum": 0 },
+    "segments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["start", "end", "text"],
+        "properties": {
+          "start": { "type": "number", "minimum": 0 },
+          "end": { "type": "number", "minimum": 0 },
+          "text": { "type": "string" },
+          "timestamp": { "type": "array" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

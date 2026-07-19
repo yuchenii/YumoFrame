@@ -1,5 +1,7 @@
 # Qwen3-TTS Processor Design
 
+> **Path note (2026-07):** Design-time paths below may still say `runtime/processors/…`. The processor now lives at `processors/qwen3-tts/`.
+
 ## Goal
 
 Ship a bundled local Qwen3-TTS processor and make it the default text-to-speech engine for newly initialized YumoFrame projects. Keep edge-tts available as an opt-in command processor.
@@ -40,7 +42,7 @@ New projects will configure:
   "align": {
     "runner": "uv",
     "name": "funasr",
-    "options": {"model": "fa-zh", "device": "auto"}
+    "options": { "model": "fa-zh", "device": "auto" }
   }
 }
 ```

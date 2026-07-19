@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "yumoframe.template.v1",
+  "id": "rotating-flow",
+  "name": "Rotating Flow",
+  "description": "Rotating kinetic text arranged in short highlighted scenes.",
+  "adapter": "adapter-dist/index.js",
+  "entry": "src/index.tsx",
+  "compositionId": "ComedyTextVideo",
+  "authoringGuide": "authoring.md",
+  "schemas": {
+    "storyboard": "schemas/storyboard.schema.json",
+    "project": "schemas/project.schema.json"
+  },
+  "defaults": {
+    "storyboard": "defaults/storyboard.json"
+  },
+  "presets": {}
+}

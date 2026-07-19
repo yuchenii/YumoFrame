@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Center Line Project",
+  "type": "object",
+  "required": ["version", "template", "preset", "composition", "style", "lines"],
+  "properties": {
+    "version": { "type": "string" },
+    "template": { "const": "center-line" },
+    "preset": { "enum": ["minimal-dark", "echo"] },
+    "composition": { "type": "object" },
+    "style": { "type": "object" },
+    "lines": { "type": "array" },
+    "audio": { "type": "object" }
+  }
+}
