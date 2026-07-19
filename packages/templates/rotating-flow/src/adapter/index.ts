@@ -2,14 +2,15 @@
 import { existsSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import type { YumoFrameConfig } from "@yumoframe/cli/core/types";
-import { layoutRotatingFlowProject } from "./layout.ts";
+import { layoutRotatingFlowProject, DEFAULT_MAX_LINE_FONT_SIZE } from "./layout.ts";
 import type { LinesDocument, RotatingFlowProject, Storyboard, TextLine } from "./types.ts";
+import { DEFAULT_FONT_FAMILY } from "../layout-constants.ts";
 
 export const ROTATING_FLOW_TEMPLATE = "rotating-flow";
 const isRotatingFlowTemplate = (value: unknown): boolean => value === ROTATING_FLOW_TEMPLATE;
 
 /** Maximum display units allowed on a single kinetic-text line. */
-export const MAX_LINE_UNITS = 6;
+export const MAX_LINE_UNITS = 8;
 /** Maximum lines allowed inside one scene. */
 export const MAX_LINES_PER_SCENE = 4;
 const SHORT_LINE_UNITS = 2;
@@ -20,8 +21,7 @@ const PUNCT_RE = /[，。！？、；：""''“”‘’（）()[\]【】《》�
 const hasPunctuation = (text: string) =>
   /[，。！？、；：""''“”‘’（）()[\]【】《》〈〉…—\-~～,.!?;:'"` ]/.test(text) || /\s/.test(text);
 const DEFAULT_THEME = {
-  fontFamily:
-    "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+  fontFamily: DEFAULT_FONT_FAMILY,
   textColor: "#FFFFFF",
   highlightColor: "#65F2A3",
   cursorColor: "#FFFFFF",
@@ -319,7 +319,7 @@ export function resolveRotatingFlow(
           width: 0,
           rotate: 0,
           scale: 1,
-          fontSize: 128,
+          fontSize: DEFAULT_MAX_LINE_FONT_SIZE,
           lineHeight: 1.32,
           align: "right",
           enter: "typewriter-pop",

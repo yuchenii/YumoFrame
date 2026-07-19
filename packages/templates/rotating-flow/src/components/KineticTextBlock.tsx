@@ -8,6 +8,7 @@ import {
   getLineChars,
   getStableTextLayout,
   getTextBlockBaseStyle,
+  MAX_BLOCK_WIDTH,
   resolveLineFontSize,
   resolveLineFontWeight,
 } from "../lib/layout";
@@ -54,7 +55,12 @@ export function KineticTextBlock({ element, time, theme }: KineticTextBlockProps
       {layout.lines.map((line, lineIndex) => {
         const chars = getLineChars(line, lineIndex);
         const isCursorLine = active && lastVisible?.lineIndex === lineIndex;
-        const fontSize = resolveLineFontSize(line, element.fontSize);
+        const fontSize = resolveLineFontSize(
+          line,
+          element.fontSize,
+          MAX_BLOCK_WIDTH,
+          element.lineHeight,
+        );
         const fontWeight = resolveLineFontWeight(line);
         const metrics = layout.lineMetrics[lineIndex];
 

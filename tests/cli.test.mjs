@@ -511,12 +511,12 @@ test("validate checks lines.json even when storyboard.json exists", () => {
   });
   const linesPath = join(root, "lines.json");
   const lines = json(linesPath);
-  lines.lines[0].segments[0].text = "超过六个中文字";
+  lines.lines[0].segments[0].text = "一二三四五六七八九";
   writeFileSync(linesPath, `${JSON.stringify(lines, null, 2)}\n`);
 
   assert.ok(
     validateCurrentProject(root).some(
-      (error) => error.includes("lines[0]") && error.includes("max 6"),
+      (error) => error.includes("lines[0]") && error.includes("max 8"),
     ),
   );
 });
@@ -528,11 +528,11 @@ test("studio and render stop on validation errors before starting Remotion", () 
   });
   const linesPath = join(root, "lines.json");
   const lines = json(linesPath);
-  lines.lines[0].segments[0].text = "超过六个中文字";
+  lines.lines[0].segments[0].text = "一二三四五六七八九";
   writeFileSync(linesPath, `${JSON.stringify(lines, null, 2)}\n`);
 
-  assert.throws(() => devProject(root), /lines\[0\].*max 6/);
-  assert.throws(() => renderProject(root), /lines\[0\].*max 6/);
+  assert.throws(() => devProject(root), /lines\[0\].*max 8/);
+  assert.throws(() => renderProject(root), /lines\[0\].*max 8/);
 });
 
 test("studio and render require resolved project scenes", () => {
@@ -596,13 +596,13 @@ test("storyboard validation reports timing, length, and highlight errors togethe
     scenes: [
       {
         lines: [
-          { start: 1, end: 2, segments: [{ text: "超过六个中文字", highlight: true }] },
+          { start: 1, end: 2, segments: [{ text: "一二三四五六七八九", highlight: true }] },
           { start: 1.5, end: 1.5, segments: [{ text: "错误", highlight: true }] },
         ],
       },
     ],
   });
-  assert.ok(errors.some((error) => error.includes("units") && error.includes("max 6")));
+  assert.ok(errors.some((error) => error.includes("units") && error.includes("max 8")));
   assert.ok(errors.some((error) => error.includes("previous line")));
   assert.ok(errors.some((error) => error.includes("after start")));
   assert.ok(errors.some((error) => error.includes("35%")));
@@ -706,7 +706,7 @@ test("layout SVG fits its viewBox to positioned content instead of the virtual c
   };
 
   const svg = renderLayoutSvg(project);
-  assert.match(svg, /width="520" height="518" viewBox="800 1000 520 518"/);
+  assert.match(svg, /width="520" height="500" viewBox="800 1000 520 500"/);
   assert.match(svg, /translate\(1000\.0 1200\.0\)/);
 });
 

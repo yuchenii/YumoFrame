@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "studio": "remotion studio src/index.tsx",
+    "layout": "node --experimental-strip-types ./scripts/layout-preview.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc && vite build"
   },

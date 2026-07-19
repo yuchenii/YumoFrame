@@ -9,6 +9,10 @@ import {
   sanitizeStoryboard,
   segmentsToMarkdown,
   validateStoryboard,
+  fitLineFontSize,
+  LAYOUT_ASCII_UNITS,
+  MAX_BLOCK_WIDTH,
+  layoutRotatingFlowProject,
 } from "../packages/templates/rotating-flow/adapter-dist/index.js";
 import {
   applyTranscriptMd,
@@ -197,6 +201,103 @@ test("sanitizeStoryboard strips punctuation", () => {
   assert.equal(cleaned.scenes[0].lines[0].segments[0].text, "复读");
 });
 
+test("layout fit keeps YumoFrame within MAX_BLOCK_WIDTH", () => {
+  const line = {
+    segments: [
+      { text: "Yumo", highlight: false },
+      { text: "Frame", highlight: true },
+    ],
+  };
+  const fontSize = fitLineFontSize(line, Math.floor(MAX_BLOCK_WIDTH / 3));
+  const units = [..."YumoFrame"].reduce(
+    (sum, char) => sum + (/[^\x00-\xff]/.test(char) ? 1 : LAYOUT_ASCII_UNITS),
+    0,
+  );
+  assert.ok(fontSize < Math.floor(MAX_BLOCK_WIDTH / 3));
+  assert.ok(units * fontSize <= MAX_BLOCK_WIDTH);
+});
+
+test("layoutRotatingFlowProject is idempotent on element.rotate", () => {
+  const draft = {
+    version: "0.1.0",
+    template: "rotating-flow",
+    endOverview: true,
+    composition: { width: 1080, height: 1920, fps: 30, duration: 4, background: "#000000" },
+    source: { type: "text", text: "甲乙" },
+    theme: {
+      fontFamily: "system-ui",
+      textColor: "#FFFFFF",
+      highlightColor: "#65F2A3",
+      cursorColor: "#FFFFFF",
+      dimCursorColor: "#7A7A7A",
+    },
+    timeline: {
+      virtualCanvas: { width: 40000, height: 40000 },
+      scenes: [
+        {
+          id: "scene-001",
+          start: 0,
+          end: 1,
+          camera: { targetX: 0, targetY: 0, scale: 1, rotate: 0, ease: "spring" },
+          elements: [
+            {
+              id: "text-001",
+              type: "kinetic-text",
+              x: 0,
+              y: 0,
+              width: 0,
+              rotate: 0,
+              scale: 1,
+              fontSize: 128,
+              lineHeight: 1.32,
+              align: "right",
+              enter: "typewriter-pop",
+              exit: "fade-slide",
+              lines: [{ start: 0, end: 1, segments: [{ text: "甲", highlight: false }] }],
+            },
+          ],
+        },
+        {
+          id: "scene-002",
+          start: 1,
+          end: 2,
+          camera: { targetX: 0, targetY: 0, scale: 1, rotate: -90, ease: "spring" },
+          elements: [
+            {
+              id: "text-002",
+              type: "kinetic-text",
+              x: 0,
+              y: 0,
+              width: 0,
+              rotate: 0,
+              scale: 1,
+              fontSize: 128,
+              lineHeight: 1.32,
+              align: "right",
+              enter: "typewriter-pop",
+              exit: "fade-slide",
+              lines: [{ start: 1, end: 2, segments: [{ text: "乙", highlight: false }] }],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const once = layoutRotatingFlowProject(draft);
+  const twice = layoutRotatingFlowProject(once);
+  assert.equal(once.timeline.scenes[0].elements[0].rotate, 0);
+  assert.equal(once.timeline.scenes[1].elements[0].rotate, 90);
+  assert.equal(
+    twice.timeline.scenes[0].elements[0].rotate,
+    once.timeline.scenes[0].elements[0].rotate,
+  );
+  assert.equal(
+    twice.timeline.scenes[1].elements[0].rotate,
+    once.timeline.scenes[1].elements[0].rotate,
+  );
+  assert.equal(twice.timeline.scenes[1].camera.rotate, -90);
+});
+
 test("skill line-units script matches rotating-flow lineUnits", async () => {
   const { spawnSync } = await import("node:child_process");
   const { mkdtempSync, writeFileSync } = await import("node:fs");
@@ -216,7 +317,7 @@ test("skill line-units script matches rotating-flow lineUnits", async () => {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(Number(result.stdout.trim()), Math.round(expected * 10) / 10);
   }
-  const fail = spawnSync(process.execPath, [script, "--check", "超过六个中文字"], {
+  const fail = spawnSync(process.execPath, [script, "--check", "一二三四五六七八九"], {
     encoding: "utf8",
   });
   assert.equal(fail.status, 1);
@@ -252,5 +353,5 @@ test("universal Skill delegates template rules to inspect", () => {
   assert.match(skill, /yumoframe inspect --json/);
   assert.doesNotMatch(skill, /rotating-flow|scenes\[\]\.lines|targetX/);
   assert.match(guide, /template": "rotating-flow"/);
-  assert.match(guide, /6 visual units/);
+  assert.match(guide, /8 visual units/);
 });

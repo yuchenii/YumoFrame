@@ -11,8 +11,8 @@ Example line:
 ```json
 {
   "segments": [
-    { "text": "校长知道我要", "highlight": false },
-    { "text": "复读", "highlight": true }
+    { "text": "文字开始", "highlight": false },
+    { "text": "流动", "highlight": true }
   ]
 }
 ```
@@ -29,11 +29,11 @@ Example Storyboard:
       "lines": [
         {
           "segments": [
-            { "text": "校长知道我要", "highlight": false },
-            { "text": "复读", "highlight": true }
+            { "text": "文字开始", "highlight": false },
+            { "text": "流动", "highlight": true }
           ]
         },
-        { "segments": [{ "text": "亲自给我打电话", "highlight": false }] }
+        { "segments": [{ "text": "镜头跟着转", "highlight": false }] }
       ]
     }
   ]
@@ -43,16 +43,17 @@ Example Storyboard:
 ## Line rules
 
 - Remove punctuation and spaces from displayed text.
-- Keep each line at 6 visual units or fewer: CJK/other = 1, ASCII = 0.5.
+- Keep each line at 8 visual units or fewer: CJK/other = 1, ASCII = 0.5.
 - Break on semantic word/phrase boundaries; never split a word, fixed phrase, or number.
 - Highlight whole important words, numbers, or punch lines inside the same line.
 - Keep highlighted characters at or below 35%; do not make full sentences green.
 - Lines of 2 units or fewer may be at most 25% of all lines.
 - Do not pad lines to the limit; natural 2–4 unit phrases are often better.
+- Font size is fit to the content column (max ≈3 CJK chars at full size) so longer lines still fit with side margin.
 
-Good: `校长知道我要` / `复读`, `985录取` / `程序`, and keeping `六百二` whole.
+Good: `文字开始` / `流动`, `985录取` / `程序`, and keeping `六百二` whole.
 
-Bad: `复读。`, `六百` / `二是我们学校`, one character per line, or duplicating a highlighted word as another line.
+Bad: `流动。`, `六百` / `二是我们学校`, one character per line, or duplicating a highlighted word as another line.
 
 Run `yumoframe validate` for authoritative width, punctuation, highlight, and tiny-line checks.
 

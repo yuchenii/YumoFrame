@@ -5,6 +5,21 @@
 import type { CSSProperties } from "react";
 import type { KineticTextElement, LineChar, TextLine } from "../types";
 import { layoutWithLines, prepareWithSegments } from "@chenglou/pretext";
+import {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_WEIGHT,
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_MAX_LINE_FONT_SIZE,
+  MAX_BLOCK_WIDTH,
+} from "../layout-constants";
+
+export {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_WEIGHT,
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_MAX_LINE_FONT_SIZE,
+  MAX_BLOCK_WIDTH,
+};
 
 /** Concatenate segment text for a line. */
 export function getLineText(line: TextLine) {
@@ -15,37 +30,81 @@ export function getLineText(line: TextLine) {
 export const MAX_CHAR_DURATION_SECONDS = 0.18;
 
 /**
- * Visual width units: ASCII ≈ 0.5, other code points ≈ 1.
+ * Authoring visual budget only (ASCII ≈ 0.5, other ≈ 1). Not used for rendered glyph width —
+ * font fitting uses pretext measurement instead.
  * @param text - Plain text (punctuation usually stripped upstream)
  */
 export function characterUnits(text: string) {
-  // Half-width ASCII vs full-width CJK so short Chinese lines size up more.
   return [...text].reduce((sum, char) => sum + (char.charCodeAt(0) < 256 ? 0.5 : 1), 0);
 }
 
-/** Light auto size vs element base; explicit line.fontSize wins. */
-export function resolveLineFontSize(line: TextLine, baseFontSize: number) {
-  if (line.fontSize != null && line.fontSize > 0) {
-    return line.fontSize;
-  }
-
-  const units = characterUnits(getLineText(line));
-  // Bump short beats so 1–2 unit punchlines don't look undersized.
-  const multiplier = units <= 2 ? 1.18 : units <= 4 ? 1.08 : 1;
-  return Math.round(baseFontSize * multiplier);
-}
-
 /**
- * Resolve CSS font-weight for a line; defaults to `baseWeight` (900).
+ * Resolve CSS font-weight for a line; defaults to `DEFAULT_FONT_WEIGHT` (900).
  * @param line - Text line that may set `fontWeight`
  * @param baseWeight - Fallback weight when unset
  */
-export function resolveLineFontWeight(line: TextLine, baseWeight = 900) {
+export function resolveLineFontWeight(line: TextLine, baseWeight = DEFAULT_FONT_WEIGHT) {
   if (line.fontWeight != null && line.fontWeight > 0) {
     return line.fontWeight;
   }
 
   return baseWeight;
+}
+
+/**
+ * Measure with the default UI font stack (must stay in sync with theme.fontFamily defaults).
+ * Remotion render may use a custom `theme.fontFamily`; then fit and paint can diverge.
+ */
+function getFont(fontSize: number, fontWeight: number) {
+  return `${fontWeight} ${fontSize}px ${DEFAULT_FONT_FAMILY}`;
+}
+
+function measureTextWidth(
+  text: string,
+  fontSize: number,
+  fontWeight: number,
+  lineHeightPx: number,
+) {
+  const prepared = prepareWithSegments(text, getFont(fontSize, fontWeight), { letterSpacing: 0 });
+  // Huge max width → single-line measure (we wrap ourselves via line segments).
+  const result = layoutWithLines(prepared, 10000, lineHeightPx);
+  return Math.max(...result.lines.map((line) => line.width), 1);
+}
+
+/**
+ * Fit line size into the content column using pretext-measured width.
+ * Explicit `line.fontSize` wins; otherwise binary-search down from `baseFontSize`.
+ */
+export function resolveLineFontSize(
+  line: TextLine,
+  baseFontSize: number,
+  maxWidth: number = MAX_BLOCK_WIDTH,
+  lineHeight: number = DEFAULT_LINE_HEIGHT,
+) {
+  if (line.fontSize != null && line.fontSize > 0) {
+    return line.fontSize;
+  }
+
+  const text = getLineText(line);
+  const maxFont = baseFontSize > 0 ? baseFontSize : DEFAULT_MAX_LINE_FONT_SIZE;
+  if (!text) return maxFont;
+
+  const fontWeight = resolveLineFontWeight(line);
+  const lh = lineHeight > 0 ? lineHeight : DEFAULT_LINE_HEIGHT;
+  let low = 1;
+  let high = maxFont;
+  let best = 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const width = measureTextWidth(text, mid, fontWeight, mid * lh);
+    if (width <= maxWidth) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return best;
 }
 
 /**
@@ -84,13 +143,14 @@ export function getElementChars(element: KineticTextElement): LineChar[] {
  * @param element - Positioned kinetic-text element
  */
 export function getTextBlockBaseStyle(element: KineticTextElement): CSSProperties {
-  const { height } = getStableTextLayout(element);
+  const { height, width } = getStableTextLayout(element);
 
   return {
     position: "absolute",
     left: element.x,
     top: element.y,
-    width: element.width,
+    // Expand if pretext is wider than resolve estimate; never shrink (keeps align anchors).
+    width: Math.min(MAX_BLOCK_WIDTH, Math.max(element.width, width, 1)),
     height,
     textAlign: element.align === "center" || element.align === "right" ? element.align : "left",
     transformOrigin: "center center",
@@ -124,24 +184,8 @@ function getTextLayoutCacheKey(element: KineticTextElement) {
   return [text, element.width, element.fontSize, element.lineHeight].join("|");
 }
 
-function getFont(fontSize: number, fontWeight: number) {
-  return `${fontWeight} ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
-}
-
-function measureTextWidth(
-  text: string,
-  fontSize: number,
-  fontWeight: number,
-  lineHeightPx: number,
-) {
-  const prepared = prepareWithSegments(text, getFont(fontSize, fontWeight), { letterSpacing: 0 });
-  // Huge max width → single-line measure (we wrap ourselves via line segments).
-  const result = layoutWithLines(prepared, 10000, lineHeightPx);
-  return Math.max(...result.lines.map((line) => line.width), 1);
-}
-
 function getLineMetrics(line: TextLine, element: KineticTextElement): LineMetrics {
-  const fontSize = resolveLineFontSize(line, element.fontSize);
+  const fontSize = resolveLineFontSize(line, element.fontSize, MAX_BLOCK_WIDTH, element.lineHeight);
   const fontWeight = resolveLineFontWeight(line);
   const lineHeightPx = fontSize * element.lineHeight;
   const width = measureTextWidth(getLineText(line), fontSize, fontWeight, lineHeightPx);

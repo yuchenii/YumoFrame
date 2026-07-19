@@ -4,17 +4,17 @@
  * MUST match src/adapter/index.ts `lineUnits` + `stripPunctuation`.
  *
  * Usage:
- *   node line-units.mjs '校长知道我要'
- *   node line-units.mjs --check '超过六个汉字啦'
+ *   node line-units.mjs '文字开始'
+ *   node line-units.mjs --check '一二三四五六七八九'
  *   node line-units.mjs --file /path/to/lines.json
  *
- * --check: exit 1 if a single line is > 6 units
- * --file: check every line in lines.json; exit 1 if any > 6 or empty after strip
+ * --check: exit 1 if a single line is > 8 units
+ * --file: check every line in lines.json; exit 1 if any > 8 or empty after strip
  */
 
 import { readFileSync } from "node:fs";
 
-const MAX_LINE_UNITS = 6;
+const MAX_LINE_UNITS = 8;
 const PUNCT_RE = /[，。！？、；：""''“”‘’（）()[\]【】《》〈〉…—\-~～,.!?;:'"`]/gu;
 
 /** Remove punctuation and whitespace before measuring units. */
@@ -75,7 +75,7 @@ function checkOne(raw, { check, label = "line" }) {
     console.error(`fail: ${label} empty after stripping punctuation`);
     return 1;
   }
-  // Soft cap: punchlines stay ≤6 visual units per line.
+  // Soft cap: punchlines stay ≤8 visual units per line.
   if (units > MAX_LINE_UNITS) {
     console.error(`fail: ${label} ${formatUnits(units)} units > ${MAX_LINE_UNITS} for "${text}"`);
     return 1;

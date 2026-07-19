@@ -103,7 +103,7 @@ export type TextLine = {
   segments: TextSegment[];
   start: number;
   end: number;
-  /** Absolute px; omit → light auto from character units × element fontSize */
+  /** Absolute px; omit → pretext-fit into the content column (capped) */
   fontSize?: number;
   /** CSS weight; omit → 900 */
   fontWeight?: number;
@@ -120,7 +120,7 @@ export type KineticTextElement = {
   scale: number;
   fontSize: number;
   lineHeight: number;
-  align?: "left" | "center" | "right" | string;
+  align: "left" | "center" | "right" | string;
   enter?: string;
   exit?: string;
   lines: TextLine[];

@@ -1,25 +1,46 @@
 /** Template-owned deterministic block positions written into project.json by resolve. */
 import type { ResolvedTextElement, RotatingFlowProject, TextLine } from "./types.ts";
+import {
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_MAX_LINE_FONT_SIZE,
+  MAX_BLOCK_WIDTH,
+} from "../layout-constants.ts";
 
-const MAX_BLOCK_WIDTH = 760;
+export { DEFAULT_LINE_HEIGHT, DEFAULT_MAX_LINE_FONT_SIZE, MAX_BLOCK_WIDTH };
+
+/**
+ * Layout-only ASCII width vs CJK=1. Higher than authoring `lineUnits` (0.5) so bold
+ * Latin (weight 900) does not underestimate block width without Node canvas/pretext.
+ */
+export const LAYOUT_ASCII_UNITS = 0.62;
 const BLOCK_GAP = 28;
 const CURSOR_WIDTH_EM = 0.66;
-const DEFAULT_LINE_HEIGHT = 1.32;
 const ALLOWED_ROTATIONS = new Set([-90, 0, 90]);
 
 const lineText = (line: TextLine): string => line.segments.map((segment) => segment.text).join("");
 
-function characterUnits(text: string): number {
-  return [...text].reduce((sum, char) => sum + (/[^\x00-\xff]/.test(char) ? 1.02 : 0.62), 0);
-}
-
-function lineFontSize(line: TextLine, base: number): number {
-  if (line.fontSize != null && line.fontSize > 0) return line.fontSize;
-  const units = [...lineText(line)].reduce(
-    (sum, char) => sum + (/[^\x00-\xff]/.test(char) ? 1 : 0.5),
+/** Layout width units: CJK/other = 1, ASCII = LAYOUT_ASCII_UNITS (not authoring lineUnits). */
+function layoutCharacterUnits(text: string): number {
+  return [...text].reduce(
+    (sum, char) => sum + (/[^\x00-\xff]/.test(char) ? 1 : LAYOUT_ASCII_UNITS),
     0,
   );
-  return Math.round(base * (units <= 2 ? 1.18 : units <= 4 ? 1.08 : 1));
+}
+
+/**
+ * Fit line font size into the content column; explicit `line.fontSize` wins.
+ * Longer lines shrink so every glyph stays inside `maxWidth`.
+ */
+export function fitLineFontSize(
+  line: TextLine,
+  baseFontSize: number,
+  maxWidth: number = MAX_BLOCK_WIDTH,
+): number {
+  if (line.fontSize != null && line.fontSize > 0) return line.fontSize;
+  const units = layoutCharacterUnits(lineText(line));
+  const maxFont = baseFontSize > 0 ? baseFontSize : DEFAULT_MAX_LINE_FONT_SIZE;
+  if (units <= 0) return maxFont;
+  return Math.max(1, Math.min(maxFont, Math.floor(maxWidth / units)));
 }
 
 /** Approximate the browser text box once; every consumer then uses the resolved coordinates. */
@@ -29,13 +50,16 @@ export function measureRotatingFlowElement(element: ResolvedTextElement): {
   lineHeights: number[];
   lineFontSizes: number[];
 } {
-  const lineFontSizes = element.lines.map((line) => lineFontSize(line, element.fontSize));
+  const lineFontSizes = element.lines.map((line) =>
+    fitLineFontSize(line, element.fontSize, MAX_BLOCK_WIDTH),
+  );
   const lineHeights = lineFontSizes.map((fontSize) => fontSize * element.lineHeight);
   const width = Math.min(
     MAX_BLOCK_WIDTH,
     Math.max(
       ...element.lines.map(
-        (line) => characterUnits(lineText(line)) * lineFontSize(line, element.fontSize),
+        (line, index) =>
+          layoutCharacterUnits(lineText(line)) * (lineFontSizes[index] ?? element.fontSize),
       ),
       1,
     ),
@@ -79,9 +103,11 @@ export function layoutRotatingFlowProject(project: RotatingFlowProject): Rotatin
       x: 0,
       y: 0,
       width: MAX_BLOCK_WIDTH,
-      rotate: -rotate + (source.rotate || 0),
+      // Cancel camera rotate so glyphs read upright on screen. Do not add
+      // source.rotate — re-layout must stay idempotent on already-resolved projects.
+      rotate: rotate === 0 ? 0 : -rotate,
       scale: source.scale || 1,
-      fontSize: source.fontSize || 128,
+      fontSize: source.fontSize || DEFAULT_MAX_LINE_FONT_SIZE,
       lineHeight: source.lineHeight || DEFAULT_LINE_HEIGHT,
       align: rotate < 0 ? "left" : "right",
     };

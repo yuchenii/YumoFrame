@@ -2,7 +2,7 @@
 
 import type { YumoFrameProject } from "./types";
 
-/** Typed defaultProps before calculateMetadata loads a real project. */
+/** Stub intro: what YumoFrame is, with natural 1–8 unit line lengths. */
 export const stubProject: YumoFrameProject = {
   version: "0.1.0",
   template: "rotating-flow",
@@ -11,10 +11,13 @@ export const stubProject: YumoFrameProject = {
     width: 1080,
     height: 1920,
     fps: 30,
-    duration: 7.3,
+    duration: 18,
     background: "#000000",
   },
-  source: { type: "text", text: "让文字开始流动镜头旋转节奏推进最后拉远看见全局" },
+  source: {
+    type: "text",
+    text: "YumoFrame是什么基于RemotionCLI工具用结构化数据做竖屏视频断行高亮分镜交给Agent预览满意再渲染模板可复用数据与代码分离这就是YumoFrame",
+  },
   theme: {
     fontFamily:
       "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
@@ -24,36 +27,60 @@ export const stubProject: YumoFrameProject = {
     dimCursorColor: "#7A7A7A",
   },
   timeline: {
-    virtualCanvas: { width: 40000, height: 40000 },
+    virtualCanvas: {
+      width: 40000,
+      height: 40000,
+    },
     scenes: [
       {
         id: "scene-001",
         start: 0,
-        end: 1.8,
-        camera: { targetX: 20000, targetY: 1900, scale: 1, rotate: 0, ease: "spring" },
+        end: 2,
+        camera: {
+          targetX: 20000,
+          targetY: 1900,
+          scale: 1,
+          rotate: 0,
+          ease: "spring",
+        },
         elements: [
           {
             id: "text-001",
             type: "kinetic-text",
-            x: 19718,
-            y: 1717.84,
-            width: 564,
+            x: 19620.5,
+            y: 1643.26,
+            width: 759,
             rotate: 0,
             scale: 1,
-            fontSize: 128,
+            fontSize: 253,
             lineHeight: 1.32,
             align: "right",
             enter: "typewriter-pop",
             exit: "fade-slide",
             lines: [
-              { segments: [{ text: "让文字", highlight: false }], start: 0, end: 0.9 },
               {
                 segments: [
-                  { text: "开始", highlight: false },
-                  { text: "流动", highlight: true },
+                  {
+                    text: "Yumo",
+                    highlight: false,
+                  },
+                  {
+                    text: "Frame",
+                    highlight: true,
+                  },
                 ],
-                start: 0.9,
-                end: 1.8,
+                start: 0,
+                end: 1.2,
+              },
+              {
+                segments: [
+                  {
+                    text: "是什么",
+                    highlight: false,
+                  },
+                ],
+                start: 1.2,
+                end: 2,
               },
             ],
           },
@@ -61,19 +88,25 @@ export const stubProject: YumoFrameProject = {
       },
       {
         id: "scene-002",
-        start: 2,
-        end: 3.8,
-        camera: { targetX: 20000, targetY: 2476.64, scale: 1, rotate: -90, ease: "spring" },
+        start: 2.3,
+        end: 4.4,
+        camera: {
+          targetX: 20000,
+          targetY: 2731.22,
+          scale: 1,
+          rotate: -90,
+          ease: "spring",
+        },
         elements: [
           {
             id: "text-002",
             type: "kinetic-text",
-            x: 19718,
-            y: 2294.48,
-            width: 564,
+            x: 19620.5,
+            y: 2529.92,
+            width: 759,
             rotate: 90,
             scale: 1,
-            fontSize: 128,
+            fontSize: 253,
             lineHeight: 1.32,
             align: "left",
             enter: "typewriter-pop",
@@ -81,32 +114,53 @@ export const stubProject: YumoFrameProject = {
             lines: [
               {
                 segments: [
-                  { text: "镜头", highlight: false },
-                  { text: "旋转", highlight: true },
+                  {
+                    text: "基于",
+                    highlight: false,
+                  },
+                  {
+                    text: "Remotion",
+                    highlight: true,
+                  },
                 ],
-                start: 2,
-                end: 2.9,
+                start: 2.3,
+                end: 3.5,
               },
-              { segments: [{ text: "节奏推进", highlight: false }], start: 2.9, end: 3.8 },
+              {
+                segments: [
+                  {
+                    text: "CLI工具",
+                    highlight: false,
+                  },
+                ],
+                start: 3.5,
+                end: 4.4,
+              },
             ],
           },
         ],
       },
       {
         id: "scene-003",
-        start: 4,
-        end: 5.8,
-        camera: { targetX: 19423.36, targetY: 2476.64, scale: 1, rotate: 0, ease: "spring" },
+        start: 4.7,
+        end: 7.1,
+        camera: {
+          targetX: 19223.72,
+          targetY: 2731.22,
+          scale: 1,
+          rotate: 0,
+          ease: "spring",
+        },
         elements: [
           {
             id: "text-003",
             type: "kinetic-text",
-            x: 19141.36,
-            y: 2294.48,
-            width: 564,
+            x: 18843.72,
+            y: 2547.74,
+            width: 760,
             rotate: 0,
             scale: 1,
-            fontSize: 128,
+            fontSize: 253,
             lineHeight: 1.32,
             align: "right",
             enter: "typewriter-pop",
@@ -114,13 +168,226 @@ export const stubProject: YumoFrameProject = {
             lines: [
               {
                 segments: [
-                  { text: "最后", highlight: false },
-                  { text: "拉远", highlight: true },
+                  {
+                    text: "用结构化数据",
+                    highlight: false,
+                  },
                 ],
-                start: 4,
-                end: 4.9,
+                start: 4.7,
+                end: 5.9,
               },
-              { segments: [{ text: "看见全局", highlight: false }], start: 4.9, end: 5.8 },
+              {
+                segments: [
+                  {
+                    text: "做",
+                    highlight: false,
+                  },
+                  {
+                    text: "竖屏视频",
+                    highlight: true,
+                  },
+                ],
+                start: 5.9,
+                end: 7.1,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "scene-004",
+        start: 7.4,
+        end: 9.8,
+        camera: {
+          targetX: 19223.72,
+          targetY: 3489.68,
+          scale: 1,
+          rotate: -90,
+          ease: "spring",
+        },
+        elements: [
+          {
+            id: "text-004",
+            type: "kinetic-text",
+            x: 18843.72,
+            y: 3308.18,
+            width: 760,
+            rotate: 90,
+            scale: 1,
+            fontSize: 253,
+            lineHeight: 1.32,
+            align: "left",
+            enter: "typewriter-pop",
+            exit: "fade-slide",
+            lines: [
+              {
+                segments: [
+                  {
+                    text: "断行高亮分镜",
+                    highlight: false,
+                  },
+                ],
+                start: 7.4,
+                end: 8.7,
+              },
+              {
+                segments: [
+                  {
+                    text: "交给",
+                    highlight: false,
+                  },
+                  {
+                    text: "Agent",
+                    highlight: true,
+                  },
+                ],
+                start: 8.7,
+                end: 9.8,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "scene-005",
+        start: 10.1,
+        end: 11.8,
+        camera: {
+          targetX: 18467.24,
+          targetY: 3489.68,
+          scale: 1,
+          rotate: 0,
+          ease: "spring",
+        },
+        elements: [
+          {
+            id: "text-005",
+            type: "kinetic-text",
+            x: 18087.24,
+            y: 3197.3,
+            width: 760,
+            rotate: 0,
+            scale: 1,
+            fontSize: 253,
+            lineHeight: 1.32,
+            align: "right",
+            enter: "typewriter-pop",
+            exit: "fade-slide",
+            lines: [
+              {
+                segments: [
+                  {
+                    text: "预览满意",
+                    highlight: false,
+                  },
+                ],
+                start: 10.1,
+                end: 11,
+              },
+              {
+                segments: [
+                  {
+                    text: "再渲染",
+                    highlight: false,
+                  },
+                ],
+                start: 11,
+                end: 11.8,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "scene-006",
+        start: 12.1,
+        end: 14.6,
+        camera: {
+          targetX: 18467.24,
+          targetY: 4357.04,
+          scale: 1,
+          rotate: -90,
+          ease: "spring",
+        },
+        elements: [
+          {
+            id: "text-006",
+            type: "kinetic-text",
+            x: 18087.24,
+            y: 4185.44,
+            width: 760,
+            rotate: 90,
+            scale: 1,
+            fontSize: 253,
+            lineHeight: 1.32,
+            align: "left",
+            enter: "typewriter-pop",
+            exit: "fade-slide",
+            lines: [
+              {
+                segments: [
+                  {
+                    text: "模板可复用",
+                    highlight: false,
+                  },
+                ],
+                start: 12.1,
+                end: 13.2,
+              },
+              {
+                segments: [
+                  {
+                    text: "数据与代码分离",
+                    highlight: false,
+                  },
+                ],
+                start: 13.2,
+                end: 14.6,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: "scene-007",
+        start: 14.9,
+        end: 16.4,
+        camera: {
+          targetX: 17722.66,
+          targetY: 4357.04,
+          scale: 1,
+          rotate: 0,
+          ease: "spring",
+        },
+        elements: [
+          {
+            id: "text-007",
+            type: "kinetic-text",
+            x: 17344.66,
+            y: 4298.96,
+            width: 756,
+            rotate: 0,
+            scale: 1,
+            fontSize: 253,
+            lineHeight: 1.32,
+            align: "right",
+            enter: "typewriter-pop",
+            exit: "fade-slide",
+            lines: [
+              {
+                segments: [
+                  {
+                    text: "这就是",
+                    highlight: false,
+                  },
+                  {
+                    text: "YumoFrame",
+                    highlight: true,
+                  },
+                ],
+                start: 14.9,
+                end: 16.4,
+              },
             ],
           },
         ],

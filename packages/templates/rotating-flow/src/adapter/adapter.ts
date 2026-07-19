@@ -7,6 +7,7 @@ import { layoutProject } from "./layout-command.ts";
 import { resolveProject } from "./resolve-command.ts";
 import { syncProject } from "./sync-command.ts";
 import { validateCurrentProject } from "./validate-command.ts";
+import { DEFAULT_FONT_FAMILY } from "../layout-constants.ts";
 
 function createInitialFiles(): TemplateInitialFiles {
   const line = { start: 0, end: 0.8, segments: [{ text: "示例", highlight: false }] };
@@ -25,8 +26,7 @@ function createInitialFiles(): TemplateInitialFiles {
       composition: { width: 1080, height: 1920, fps: 30, duration: 1, background: "#000000" },
       source: { type: "text", text: "" },
       theme: {
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+        fontFamily: DEFAULT_FONT_FAMILY,
         textColor: "#FFFFFF",
         highlightColor: "#65F2A3",
         cursorColor: "#FFFFFF",
@@ -71,3 +71,9 @@ export {
   validateProject,
   validateStoryboard,
 } from "./index.ts";
+export {
+  fitLineFontSize,
+  LAYOUT_ASCII_UNITS,
+  MAX_BLOCK_WIDTH,
+  layoutRotatingFlowProject,
+} from "./layout.ts";
