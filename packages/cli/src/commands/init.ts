@@ -44,8 +44,8 @@ export function initProject({
   // Default path conventions used by the rest of the CLI.
   writeJson(resolve(root, "yumoframe.config.json"), {
     framework: "yumoframe",
-    version: "0.1.2",
-    runtimeVersion: "0.1.2",
+    version: "0.1.3",
+    runtimeVersion: "0.1.3",
     template: canonicalTemplate,
     ...(selectedPreset ? { preset: selectedPreset } : {}),
     templateSource: "runtime",

@@ -1,6 +1,6 @@
 {
   "name": "@yumoframe/cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Private workspace package: TypeScript/Vite source exports for template adapters. Not a Node runtime entry — adapters bundle these modules into adapter-dist.",
   "type": "module",
