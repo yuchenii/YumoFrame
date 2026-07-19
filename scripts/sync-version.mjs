@@ -19,19 +19,19 @@ const { version } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8
 const initPath = resolve(root, "packages", "cli", "src", "commands", "init.ts");
 const original = readFileSync(initPath, "utf8");
 
-// Config `version` is the one right after `framework: 'yumoframe',` — not the stub 0.1.0 fields.
-const versionPattern = /(framework: 'yumoframe',\s*version: )'[^']*'/;
+// Config `version` is the one right after `framework: "yumoframe",` — not the stub 0.1.0 fields.
+const versionPattern = /(framework: "yumoframe",\s*version: )"[^"]*"/;
 if (!versionPattern.test(original)) {
   throw new Error("sync-version: could not find the config version in init.ts");
 }
-let source = original.replace(versionPattern, `$1'${version}'`);
+let source = original.replace(versionPattern, `$1"${version}"`);
 
 if (syncRuntime) {
-  const runtimePattern = /(runtimeVersion: )'[^']*'/;
+  const runtimePattern = /(runtimeVersion: )"[^"]*"/;
   if (!runtimePattern.test(source)) {
     throw new Error("sync-version: could not find runtimeVersion in init.ts");
   }
-  source = source.replace(runtimePattern, `$1'${version}'`);
+  source = source.replace(runtimePattern, `$1"${version}"`);
 }
 
 const scope = syncRuntime ? "version + runtimeVersion" : "version";
