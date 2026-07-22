@@ -70,7 +70,12 @@ export function initProject({
         runner: "uv",
         name: "funasr",
         env: {},
-        options: { device: "auto", hotwords: "", maxSegmentMs: 30000 },
+        options: {
+          device: "auto",
+          hotwords: "",
+          maxSegmentMs: 30000,
+          modelSource: "modelscope",
+        },
       },
       // Default local TTS: Qwen3-TTS 0.6B CustomVoice with the Mandarin Vivian voice.
       tts: {
@@ -89,7 +94,7 @@ export function initProject({
         runner: "uv",
         name: "funasr",
         env: {},
-        options: { model: "fa-zh", device: "auto" },
+        options: { model: "fa-zh", modelSource: "modelscope", device: "auto" },
       },
     },
   });

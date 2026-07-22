@@ -22,3 +22,10 @@ packages = ["src/media_text"]
 
 [tool.uv]
 package = true
+
+# src-layout package; point the language server at src/ + this project's .venv
+[tool.basedpyright]
+pythonVersion = "3.10"
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]

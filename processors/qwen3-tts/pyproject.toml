@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Synthesize speech with the bundled Qwen3-TTS processor."
 requires-python = ">=3.10"
 dependencies = [
+  "modelscope>=1.38,<2",
   "qwen-tts>=0.1.1,<0.2",
   "torch>=2.2",
 ]
@@ -20,3 +21,10 @@ packages = ["src/qwen3_tts_processor"]
 
 [tool.uv]
 package = true
+
+# src-layout package; point the language server at src/ + this project's .venv
+[tool.basedpyright]
+pythonVersion = "3.10"
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]

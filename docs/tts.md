@@ -16,6 +16,8 @@
 
 `init` 默认使用本地 `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`，语言 `Chinese`、普通话女声 `Vivian`，输出到 `assets/input.wav`。首次运行会创建独立缓存 venv 并下载模型；模型权重不进入 npm 包。默认同时配置 FunASR `fa-zh`，用“生成音频 + 原始文本”直接做强制对齐，不把音频重新识别成文字。
 
+本地模型的可选仓库由 `tts-profiles.json` 的 `sources` 数组声明，`modelSource` 负责选择；未指定时优先 ModelScope，没有 ModelScope 条目才使用数组首项。processor 只检查并继续所选来源的缓存；目录中只有半截文件时不会当成完整模型，404 或网络错误也不会自动换源。
+
 ## 本地 Qwen3-TTS 模型
 
 本地 Qwen3-TTS 可选模型：
@@ -31,7 +33,7 @@
 
 ```jsonc
 // 1.7B 内置音色
-"options": {"model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "language": "Chinese", "speaker": "Vivian", "device": "auto"}
+"options": {"model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "modelSource": "modelscope", "language": "Chinese", "speaker": "Vivian", "device": "auto"}
 
 // 1.7B 音色设计
 "options": {"model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign", "language": "Chinese", "instruct": "清晰自然、亲切的普通话年轻女声", "device": "auto"}
@@ -42,7 +44,7 @@
 
 Base 未提供 `refText` 时会退化为仅提取说话人特征，质量通常较低；参考音频处理可能需要系统 SoX（macOS：`brew install sox`）。
 
-`options.model` 既可写 Hugging Face 模型 ID，也可写已下载的本地 snapshot 目录；只要路径保留官方目录名中的 `-CustomVoice`、`-VoiceDesign` 或 `-Base`，YumoFrame 与 Python processor 都会识别对应能力，不会重新下载权重。
+`options.model` 既可写模型目录中的 ID，也可写已下载的本地 snapshot 目录；相对本地路径需显式使用 `./` 或 `../`（Windows 使用 `.\\` 或 `..\\`），避免与 `org/name` Hub ID 混淆。只要路径保留官方目录名中的 `-CustomVoice`、`-VoiceDesign` 或 `-Base`，YumoFrame 与 Python processor 都会识别对应能力，不会重新下载权重。下载器版本由包内 `uv.lock` 锁定，用户机器只需要 `uv`，不需要 `mise` 或单独安装 ModelScope/Hugging Face CLI。
 
 ## 可选引擎（edge-tts / API）
 
@@ -132,7 +134,7 @@ yumoframe synthesize --plan speech.json   # 按审核后的计划分段生成、
 "align": {"runner": "command", "command": ["my-aligner"]}  // 收 audioPath textPath outputBase，写出 transcript.json
 ```
 
-`options` 里的键会透传成 `--kebab` flag，所以本地 uv 引擎可以指定模型：ASR 用 `{"model":"paraformer-zh-streaming"}`、对齐用 `{"model":"fa-zh"}` 等。
+`options` 里的键会透传成 `--kebab` flag，所以本地 uv 引擎可以指定模型：ASR 用 `{"model":"paraformer-zh-streaming"}`、对齐用 `{"model":"fa-zh"}` 等。FunASR 默认通过官方 `hub="ms"` 使用 ModelScope；仅在明确配置 `"modelSource":"huggingface"` 时改用 `hub="hf"`。
 
 `synthesize` 若产出了 `transcript.json`，接着 `resolve → render`；否则先 `transcribe`。
 

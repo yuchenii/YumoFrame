@@ -93,7 +93,7 @@ Use `eject` only when the template source itself must be customized. Normal proj
 | `command` | External CLI (e.g. `uvx edge-tts`)            | uv is enough                      |
 | `api`     | Online TTS (DashScope / OpenAI-compatible, …) | an API key                        |
 
-New projects default to local Qwen3-TTS 0.6B + Vivian, with FunASR `fa-zh` timing the known source text. Skill-authored voiced work must review `speech.json` before `yumoframe synthesize --plan`; bare `synthesize` remains available for whole-text synthesis outside the Skill.
+New projects default to local Qwen3-TTS 0.6B + Vivian, with FunASR `fa-zh` timing the known source text. Bundled models download from ModelScope by default and reuse that cache; rerunning after an interruption resumes from the same source rather than switching hubs. Skill-authored voiced work must review `speech.json` before `yumoframe synthesize --plan`; bare `synthesize` remains available for whole-text synthesis outside the Skill.
 
 ```bash
 yumoframe synthesize --capabilities   # inspect allowed controls for the active model

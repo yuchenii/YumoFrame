@@ -29,6 +29,7 @@ import { transcribeInvocation } from "./transcribe.ts";
 import {
   parseSpeechPlan,
   resolveTtsCapabilities,
+  resolveTtsModelSources,
   resolveTtsProfile,
   validateSpeechPlan,
   validateTtsConfiguration,
@@ -181,6 +182,18 @@ function uvOptions(config: YumoFrameConfig, root?: string): Record<string, strin
   const tts = config.processors.tts;
   if (!tts || tts.runner !== "uv") throw new Error('processors.tts must use runner "uv"');
   const options = { ...tts.options };
+  const sources = resolveTtsModelSources(tts);
+  const requestedSource = options.modelSource;
+  const source = requestedSource
+    ? sources.find(({ provider }) => provider === requestedSource)
+    : (sources.find(({ provider }) => provider === "modelscope") ?? sources[0]);
+  if (requestedSource && sources.length > 0 && !source) {
+    throw new Error(`Model source '${requestedSource}' is not configured for '${options.model}'`);
+  }
+  if (source) {
+    options.modelSource = source.provider;
+    options.model = source.model;
+  }
   if (
     root &&
     typeof options.refAudio === "string" &&

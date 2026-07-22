@@ -22,6 +22,7 @@ type RegisteredModel = {
   provider?: string | string[];
   model: string;
   profile: string;
+  sources?: { provider: "modelscope" | "huggingface"; model: string }[];
 };
 type RegisteredVoice = NonNullable<NonNullable<TtsCapabilities["available"]>["voices"]>[number] & {
   runner: Processor["runner"];
@@ -268,6 +269,19 @@ export function resolveTtsProfile(processor: Processor): TtsProfile {
   return resolveProfile(processor, registry().profiles);
 }
 
+/** Return the configured download sources for a packaged model. */
+export function resolveTtsModelSources(
+  processor: Processor,
+): { provider: "modelscope" | "huggingface"; model: string }[] {
+  if (processor.runner !== "uv") return [];
+  const model = configuredString(processor.options?.model);
+  if (!model) return [];
+  return (
+    registry().models.find((entry) => catalogMatches(entry, processor) && entry.model === model)
+      ?.sources ?? []
+  );
+}
+
 function catalogMatches(entry: RegisteredModel | RegisteredVoice, processor: Processor): boolean {
   if (entry.runner !== processor.runner) return false;
   if (processor.runner === "uv") return entry.processor === processor.name;
@@ -297,6 +311,10 @@ export function resolveTtsCapabilities(processor: Processor): TtsCapabilities {
   const language = configuredString(options?.language ?? options?.languageType);
   const speaker = configuredString(options?.speaker);
   const device = configuredString(options?.device);
+  const sources = resolveTtsModelSources(processor);
+  const modelSource =
+    configuredString(options?.modelSource) ??
+    (sources.find(({ provider }) => provider === "modelscope") ?? sources[0])?.provider;
   const selected: TtsCapabilities["selected"] = {
     runner: processor.runner,
     ...(processor.runner === "uv" ? { processor: processor.name } : {}),
@@ -309,10 +327,15 @@ export function resolveTtsCapabilities(processor: Processor): TtsCapabilities {
       ? { voice: processor.voice }
       : {}),
     ...(device ? { device } : {}),
+    ...(modelSource ? { modelSource } : {}),
   };
   const models = registered.models
     .filter((entry) => catalogMatches(entry, processor))
-    .map(({ model, profile: modelProfile }) => ({ model, profile: modelProfile }));
+    .map(({ model, profile: modelProfile, sources }) => ({
+      model,
+      profile: modelProfile,
+      ...(sources ? { sources } : {}),
+    }));
   const voices = registered.voices
     .filter((entry) => catalogMatches(entry, processor))
     .map(({ speaker, description, nativeLanguage }) => ({ speaker, description, nativeLanguage }));

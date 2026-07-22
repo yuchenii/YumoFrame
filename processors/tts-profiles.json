@@ -4,25 +4,41 @@
       "runner": "uv",
       "processor": "qwen3-tts",
       "model": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
-      "profile": "qwen3-custom-voice"
+      "profile": "qwen3-custom-voice",
+      "sources": [
+        { "provider": "modelscope", "model": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" },
+        { "provider": "huggingface", "model": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" }
+      ]
     },
     {
       "runner": "uv",
       "processor": "qwen3-tts",
       "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
-      "profile": "qwen3-custom-voice"
+      "profile": "qwen3-custom-voice",
+      "sources": [
+        { "provider": "modelscope", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice" },
+        { "provider": "huggingface", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice" }
+      ]
     },
     {
       "runner": "uv",
       "processor": "qwen3-tts",
       "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
-      "profile": "qwen3-voice-design"
+      "profile": "qwen3-voice-design",
+      "sources": [
+        { "provider": "modelscope", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign" },
+        { "provider": "huggingface", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign" }
+      ]
     },
     {
       "runner": "uv",
       "processor": "qwen3-tts",
       "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
-      "profile": "qwen3-base"
+      "profile": "qwen3-base",
+      "sources": [
+        { "provider": "modelscope", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base" },
+        { "provider": "huggingface", "model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base" }
+      ]
     },
     {
       "runner": "api",

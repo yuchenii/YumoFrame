@@ -85,9 +85,14 @@ export interface TtsCapabilities {
     speaker?: string;
     voice?: string;
     device?: string;
+    modelSource?: string;
   };
   available?: {
-    models: { model: string; profile: string }[];
+    models: {
+      model: string;
+      profile: string;
+      sources?: { provider: "modelscope" | "huggingface"; model: string }[];
+    }[];
     voices?: { speaker: string; description: string; nativeLanguage: string }[];
   };
   profile: TtsProfile;

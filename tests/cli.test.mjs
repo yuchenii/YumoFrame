@@ -177,6 +177,7 @@ test("init creates a data-only rotating-flow project", () => {
   assert.equal(loadConfig(root).config.paths.storyboard, "storyboard.json");
   assert.equal(loadConfig(root).config.paths.lines, "lines.json");
   assert.equal(loadConfig(root).config.paths.media, "assets/input.wav");
+  assert.equal(loadConfig(root).config.processors.asr.options.modelSource, "modelscope");
   assert.deepEqual(loadConfig(root).config.processors.tts, {
     runner: "uv",
     name: "qwen3-tts",
@@ -192,7 +193,7 @@ test("init creates a data-only rotating-flow project", () => {
     runner: "uv",
     name: "funasr",
     env: {},
-    options: { model: "fa-zh", device: "auto" },
+    options: { model: "fa-zh", modelSource: "modelscope", device: "auto" },
   });
 });
 
@@ -838,7 +839,12 @@ test("FunASR uses a versioned virtual environment outside the package", () => {
         asr: {
           runner: "uv",
           name: "funasr",
-          options: { device: "cpu", hotwords: "复读 20", maxSegmentMs: 12000 },
+          options: {
+            device: "cpu",
+            hotwords: "复读 20",
+            maxSegmentMs: 12000,
+            modelSource: "modelscope",
+          },
         },
       },
     },
@@ -848,6 +854,8 @@ test("FunASR uses a versioned virtual environment outside the package", () => {
   assert.equal(invocation.env.UV_PROJECT_ENVIRONMENT, environment);
   assert.ok(invocation.args.includes("--locked"));
   assert.ok(invocation.args.includes("12000"));
+  assert.ok(invocation.args.includes("--model-source"));
+  assert.ok(invocation.args.includes("modelscope"));
 });
 
 test("Qwen3-TTS uses the bundled uv processor with 0.6B Vivian defaults", () => {
@@ -885,7 +893,17 @@ test("Qwen3-TTS uses the bundled uv processor with 0.6B Vivian defaults", () => 
     "/tmp/voice.wav",
   ]);
   assert.ok(invocation.args.includes("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"));
+  assert.ok(invocation.args.includes("--model-source"));
+  assert.ok(invocation.args.includes("modelscope"));
   assert.ok(invocation.args.includes("Vivian"));
+
+  config.processors.tts.options.modelSource = "huggingface";
+  const huggingFaceInvocation = synthesizeInvocation({
+    config,
+    text: "大家好",
+    outPath: "/tmp/voice.wav",
+  });
+  assert.ok(huggingFaceInvocation.args.includes("huggingface"));
 
   config.processors.tts.options = {
     model: "Qwen/Qwen3-TTS-12Hz-1.7B-Base",

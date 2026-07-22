@@ -66,6 +66,7 @@ test("default Qwen3-TTS capabilities report the selected configuration and local
     language: "Chinese",
     speaker: "Vivian",
     device: "auto",
+    modelSource: "modelscope",
   });
   assert.deepEqual(
     capabilities.available.models.map(({ model, profile }) => ({ model, profile })),
@@ -96,6 +97,10 @@ test("default Qwen3-TTS capabilities report the selected configuration and local
   assert.equal(capabilities.profile.execution, "native-batch");
   assert.deepEqual(capabilities.profile.controls, ["qwen-instruct"]);
   assert.equal(capabilities.profile.timing, "align");
+  assert.deepEqual(capabilities.available.models[0].sources, [
+    { provider: "modelscope", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" },
+    { provider: "huggingface", model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice" },
+  ]);
 });
 
 test("1.7B CustomVoice capabilities keep the configured model and speaker selected", () => {

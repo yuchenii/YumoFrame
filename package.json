@@ -52,6 +52,8 @@
     "typecheck": "pnpm build:adapters && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.adapters.json && pnpm --filter './packages/templates/*' typecheck",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "fmt:py": "uvx ruff format processors",
+    "fmt:py:check": "uvx ruff format --check processors",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "build": "pnpm build:cli && pnpm --filter './packages/templates/*' build",

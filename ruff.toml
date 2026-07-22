@@ -1,0 +1,33 @@
+# Shared Ruff config for processors/*/ (src-layout uv projects).
+# extend-exclude keeps Ruff's defaults and adds project paths.
+target-version = "py310"
+line-length = 100
+extend-exclude = [
+  ".venv",
+  "**/.venv",
+  "node_modules",
+  "**/node_modules",
+  "dist",
+  "**/dist",
+  ".ruff_cache",
+  "packages",
+  "skills",
+  "schemas",
+  "docs",
+  "tests",
+  "scripts",
+  "adapter-dist",
+  "out",
+  ".remotion",
+  ".pnpm-store",
+  ".codegraph",
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
 import wave
 from pathlib import Path
+
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+
+MODEL_SOURCES = {"modelscope": "ms", "huggingface": "hf"}
 
 # Punctuation that ends a segment when splitting raw FunASR character timestamps.
 PUNCTUATION = set("，。！？!?、；;：:,.")
@@ -135,7 +140,12 @@ def normalize_results(results: list[dict], duration: float) -> dict:
         )
 
     segments.sort(key=lambda segment: segment["start"])
-    return {"engine": "funasr", "language": "zh", "duration": duration, "segments": segments}
+    return {
+        "engine": "funasr",
+        "language": "zh",
+        "duration": duration,
+        "segments": segments,
+    }
 
 
 def convert_to_wav(source: Path, output: Path) -> None:
@@ -170,7 +180,14 @@ def wav_duration(path: Path) -> float:
         return audio.getnframes() / audio.getframerate()
 
 
-def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int, model_name: str | None) -> dict:
+def transcribe(
+    source: Path,
+    device: str,
+    hotwords: str,
+    max_segment_ms: int,
+    model_name: str | None,
+    model_source: str,
+) -> dict:
     """
     Run Paraformer + VAD + punctuation on ``source`` and return a normalized transcript.
 
@@ -189,6 +206,7 @@ def transcribe(source: Path, device: str, hotwords: str, max_segment_ms: int, mo
             # Longer VAD windows reduce mid-phrase cuts for comedy-style delivery.
             vad_kwargs={"max_single_segment_time": max_segment_ms},
             device=device,
+            hub=MODEL_SOURCES[model_source],
         )
         results = model.generate(
             input=str(wav_path),
@@ -226,7 +244,12 @@ def normalize_alignment(results: list[dict], text: str, duration: float) -> dict
             }
         ]
     segments.sort(key=lambda segment: segment["start"])
-    return {"engine": "funasr-fa", "language": "zh", "duration": duration, "segments": segments}
+    return {
+        "engine": "funasr-fa",
+        "language": "zh",
+        "duration": duration,
+        "segments": segments,
+    }
 
 
 def alignment_issues(results: list[dict], text: str, duration: float) -> list[str]:
@@ -254,7 +277,7 @@ def alignment_issues(results: list[dict], text: str, duration: float) -> list[st
     return issues
 
 
-def align(source: Path, text: str, device: str, model_name: str | None) -> dict:
+def align(source: Path, text: str, device: str, model_name: str | None, model_source: str) -> dict:
     """
     Force-align known ``text`` to ``source`` audio: assign timestamps without recognizing text.
 
@@ -267,7 +290,9 @@ def align(source: Path, text: str, device: str, model_name: str | None) -> dict:
         wav_path = Path(temp_dir) / "audio.wav"
         convert_to_wav(source, wav_path)
         duration = wav_duration(wav_path)
-        model = AutoModel(model=model_name or "fa-zh", device=device)
+        model = AutoModel(
+            model=model_name or "fa-zh", device=device, hub=MODEL_SOURCES[model_source]
+        )
         # data_type marks the tuple as (audio, text); adjust if your FunASR version differs.
         results = model.generate(input=(str(wav_path), text), data_type=("sound", "text"))
         return normalize_alignment(results, text, duration)
@@ -315,12 +340,12 @@ def load_align_manifest(path: Path) -> list[dict]:
     return validated
 
 
-def align_manifest(path: Path, device: str, model_name: str | None) -> dict:
+def align_manifest(path: Path, device: str, model_name: str | None, model_source: str) -> dict:
     """Align every manifest item with one shared FunASR model instance."""
     from funasr import AutoModel
 
     items = load_align_manifest(path)
-    model = AutoModel(model=model_name or "fa-zh", device=device)
+    model = AutoModel(model=model_name or "fa-zh", device=device, hub=MODEL_SOURCES[model_source])
     output_items: list[dict] = []
     with tempfile.TemporaryDirectory(prefix="media-text-fa-manifest-") as temp_dir:
         for index, item in enumerate(items):
@@ -328,7 +353,9 @@ def align_manifest(path: Path, device: str, model_name: str | None) -> dict:
             convert_to_wav(item["source"], wav_path)
             duration = wav_duration(wav_path)
             try:
-                results = model.generate(input=(str(wav_path), item["text"]), data_type=("sound", "text"))
+                results = model.generate(
+                    input=(str(wav_path), item["text"]), data_type=("sound", "text")
+                )
             except Exception:
                 results = []
             issues = alignment_issues(results, item["text"], duration)
@@ -351,7 +378,7 @@ def write_outputs(payload: dict, output: Path) -> None:
         encoding="utf-8",
     )
     lines = [
-        f'[{segment["start"]:07.2f}-{segment["end"]:07.2f}] {segment["text"]}'
+        f"[{segment['start']:07.2f}-{segment['end']:07.2f}] {segment['text']}"
         for segment in payload["segments"]
     ]
     output.with_suffix(".txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -368,15 +395,41 @@ def write_json_output(payload: dict, output: Path) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the ``media-text`` / FunASR CLI argument parser."""
-    parser = argparse.ArgumentParser(description="Extract timestamped Chinese text from audio or video with FunASR.")
+    parser = argparse.ArgumentParser(
+        description="Extract timestamped Chinese text from audio or video with FunASR."
+    )
     parser.add_argument("input", type=Path, nargs="?")
-    parser.add_argument("-o", "--output", type=Path, help="Output basename; defaults beside the input file.")
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="Output basename; defaults beside the input file.",
+    )
     parser.add_argument("--device", choices=["auto", "cpu", "mps", "cuda:0"], default="auto")
-    parser.add_argument("--hotwords", default="", help='FunASR hotwords, for example: "复读 20 班主任 20"')
+    parser.add_argument(
+        "--hotwords",
+        default="",
+        help='FunASR hotwords, for example: "复读 20 班主任 20"',
+    )
     parser.add_argument("--max-segment-ms", type=int, default=30000)
-    parser.add_argument("--model", default=None, help="Override the model (ASR default paraformer-zh; align default fa-zh).")
-    parser.add_argument("--align", type=Path, default=None, help="Forced-align mode: path to a text file to align against the audio.")
-    parser.add_argument("--align-manifest", type=Path, default=None, help="Force-align every item in a versioned JSON manifest.")
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Override the model (ASR default paraformer-zh; align default fa-zh).",
+    )
+    parser.add_argument("--model-source", choices=MODEL_SOURCES, default="modelscope")
+    parser.add_argument(
+        "--align",
+        type=Path,
+        default=None,
+        help="Forced-align mode: path to a text file to align against the audio.",
+    )
+    parser.add_argument(
+        "--align-manifest",
+        type=Path,
+        default=None,
+        help="Force-align every item in a versioned JSON manifest.",
+    )
     return parser
 
 
@@ -392,7 +445,7 @@ def main(argv: list[str] | None = None) -> None:
         output = args.output.expanduser().resolve()
         device = choose_device(args.device)
         print(f"Force-aligning manifest {manifest.name} on {device}")
-        payload = align_manifest(manifest, device, args.model)
+        payload = align_manifest(manifest, device, args.model, args.model_source)
         write_json_output(payload, output)
         print(f"Wrote {output.with_suffix('.json')}")
         return
@@ -409,9 +462,16 @@ def main(argv: list[str] | None = None) -> None:
         if not text:
             raise SystemExit(f"Align text file is empty: {args.align}")
         print(f"Force-aligning {source.name} to given text on {device}")
-        payload = align(source, text, device, args.model)
+        payload = align(source, text, device, args.model, args.model_source)
     else:
         print(f"Transcribing {source.name} with {args.model or 'Paraformer-Large'} on {device}")
-        payload = transcribe(source, device, args.hotwords, args.max_segment_ms, args.model)
+        payload = transcribe(
+            source,
+            device,
+            args.hotwords,
+            args.max_segment_ms,
+            args.model,
+            args.model_source,
+        )
     write_outputs(payload, output)
     print(f"Wrote {output.with_suffix('.json')} and {output.with_suffix('.txt')}")
