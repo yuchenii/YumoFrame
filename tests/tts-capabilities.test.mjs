@@ -69,12 +69,89 @@ test("default Qwen3-TTS capabilities report the selected configuration and local
     modelSource: "modelscope",
   });
   assert.deepEqual(
-    capabilities.available.models.map(({ model, profile }) => ({ model, profile })),
+    capabilities.available.models.map(
+      ({ runner, processor, provider, model, profile, protocol }) => ({
+        runner,
+        processor,
+        provider,
+        model,
+        profile,
+        protocol,
+      }),
+    ),
     [
-      { model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", profile: "qwen3-custom-voice" },
-      { model: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", profile: "qwen3-custom-voice" },
-      { model: "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign", profile: "qwen3-voice-design" },
-      { model: "Qwen/Qwen3-TTS-12Hz-1.7B-Base", profile: "qwen3-base" },
+      {
+        runner: "uv",
+        processor: "qwen3-tts",
+        provider: undefined,
+        model: "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+        profile: "qwen3-custom-voice",
+        protocol: undefined,
+      },
+      {
+        runner: "uv",
+        processor: "qwen3-tts",
+        provider: undefined,
+        model: "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+        profile: "qwen3-custom-voice",
+        protocol: undefined,
+      },
+      {
+        runner: "uv",
+        processor: "qwen3-tts",
+        provider: undefined,
+        model: "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+        profile: "qwen3-voice-design",
+        protocol: undefined,
+      },
+      {
+        runner: "uv",
+        processor: "qwen3-tts",
+        provider: undefined,
+        model: "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        profile: "qwen3-base",
+        protocol: undefined,
+      },
+      {
+        runner: "api",
+        processor: undefined,
+        provider: "dashscope",
+        model: "qwen3-tts-instruct-flash",
+        profile: "dashscope-qwen3-tts-instruct-flash",
+        protocol: "dashscope-qwen-http",
+      },
+      {
+        runner: "api",
+        processor: undefined,
+        provider: "dashscope",
+        model: "qwen3-tts-flash",
+        profile: "dashscope-qwen3-tts-flash",
+        protocol: "dashscope-qwen-http",
+      },
+      {
+        runner: "api",
+        processor: undefined,
+        provider: "dashscope",
+        model: "cosyvoice-v3.5-plus",
+        profile: "dashscope-cosyvoice-instruct",
+        protocol: "dashscope-cosyvoice-http",
+      },
+      {
+        runner: "api",
+        processor: undefined,
+        provider: "dashscope",
+        model: "cosyvoice-v3.5-flash",
+        profile: "dashscope-cosyvoice-instruct",
+        protocol: "dashscope-cosyvoice-http",
+      },
+      {
+        runner: "api",
+        processor: undefined,
+        provider: "openai",
+        model: "gpt-4o-mini-tts",
+        profile: "openai-gpt-4o-mini-tts",
+        protocol: "openai-compatible",
+      },
     ],
   );
   assert.deepEqual(
@@ -156,6 +233,8 @@ test("custom API capabilities expose no key, environment, endpoint, or private o
   config.processors.tts = {
     runner: "api",
     provider: "custom-provider",
+    protocol: "openai-compatible",
+    profile: "api-single-neutral",
     baseUrl: "https://secret.example/speech?token=url-secret",
     model: "private-model",
     voice: "private-voice",
@@ -170,18 +249,19 @@ test("custom API capabilities expose no key, environment, endpoint, or private o
       runner: "api",
       provider: "custom-provider",
       model: "private-model",
-      profile: "unknown",
+      profile: "api-single-neutral",
+      protocol: "openai-compatible",
       language: "Chinese",
       voice: "private-voice",
       device: "cloud",
     });
-    assert.equal(capabilities.available, undefined);
     assert.deepEqual(capabilities.profile, {
-      id: "unknown",
+      id: "api-single-neutral",
       execution: "single",
       controls: ["none"],
       timing: "align",
     });
+    assert.ok(capabilities.available.models.some(({ model }) => model === "cosyvoice-v3.5-plus"));
     const output = JSON.stringify(capabilities);
     for (const secret of [
       "YF_PRIVATE_KEY",
@@ -195,4 +275,37 @@ test("custom API capabilities expose no key, environment, endpoint, or private o
   } finally {
     delete process.env.YF_PRIVATE_KEY;
   }
+});
+
+test("unknown API models require an explicit known protocol and profile", () => {
+  const processor = {
+    runner: "api",
+    provider: "dashscope",
+    model: "cosyvoice-v3.6-flash",
+    voice: "custom-voice",
+  };
+  assert.throws(
+    () => synthesizeCapabilities(projectWithTts(processor)),
+    /requires explicit processors\.tts\.protocol and processors\.tts\.profile/,
+  );
+  assert.throws(
+    () =>
+      synthesizeCapabilities(
+        projectWithTts({
+          ...processor,
+          protocol: "dashscope-qwen-http",
+          profile: "dashscope-cosyvoice-instruct",
+        }),
+      ),
+    /not compatible/,
+  );
+  const capabilities = synthesizeCapabilities(
+    projectWithTts({
+      ...processor,
+      protocol: "dashscope-cosyvoice-http",
+      profile: "dashscope-cosyvoice-instruct",
+    }),
+  );
+  assert.equal(capabilities.selected.protocol, "dashscope-cosyvoice-http");
+  assert.equal(capabilities.selected.profile, "dashscope-cosyvoice-instruct");
 });

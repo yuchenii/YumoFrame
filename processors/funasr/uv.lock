@@ -2647,7 +2647,7 @@ wheels = [
 ]
 
 [[package]]
-name = "yumoframe-media-text"
+name = "yumoframe-funasr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

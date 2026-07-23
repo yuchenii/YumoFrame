@@ -44,18 +44,35 @@
       "runner": "api",
       "provider": "dashscope",
       "model": "qwen3-tts-instruct-flash",
+      "protocol": "dashscope-qwen-http",
       "profile": "dashscope-qwen3-tts-instruct-flash"
     },
     {
       "runner": "api",
       "provider": "dashscope",
       "model": "qwen3-tts-flash",
+      "protocol": "dashscope-qwen-http",
       "profile": "dashscope-qwen3-tts-flash"
+    },
+    {
+      "runner": "api",
+      "provider": "dashscope",
+      "model": "cosyvoice-v3.5-plus",
+      "protocol": "dashscope-cosyvoice-http",
+      "profile": "dashscope-cosyvoice-instruct"
+    },
+    {
+      "runner": "api",
+      "provider": "dashscope",
+      "model": "cosyvoice-v3.5-flash",
+      "protocol": "dashscope-cosyvoice-http",
+      "profile": "dashscope-cosyvoice-instruct"
     },
     {
       "runner": "api",
       "provider": "openai",
       "model": "gpt-4o-mini-tts",
+      "protocol": "openai-compatible",
       "profile": "openai-gpt-4o-mini-tts"
     }
   ],
@@ -236,6 +253,7 @@
     {
       "id": "dashscope-qwen3-tts-instruct-flash",
       "compatibleRunners": ["api"],
+      "compatibleProtocols": ["dashscope-qwen-http"],
       "match": {
         "runner": "api",
         "provider": "dashscope",
@@ -261,6 +279,7 @@
     {
       "id": "dashscope-qwen3-tts-flash",
       "compatibleRunners": ["api"],
+      "compatibleProtocols": ["dashscope-qwen-http"],
       "match": {
         "runner": "api",
         "provider": "dashscope",
@@ -281,8 +300,35 @@
       "timing": "align"
     },
     {
+      "id": "dashscope-cosyvoice-instruct",
+      "compatibleRunners": ["api"],
+      "compatibleProtocols": ["dashscope-cosyvoice-http"],
+      "match": {
+        "runner": "api",
+        "provider": "dashscope"
+      },
+      "execution": "sequential",
+      "controls": ["dashscope-instruct"],
+      "requiredConfig": ["voice", "apiKeyEnv"],
+      "requiredWholeTextConfig": ["options.instructions"],
+      "controlOptions": {
+        "dashscope-instruct": {
+          "required": ["instructions"],
+          "constraints": {
+            "instructions": "non-empty natural-language delivery instruction"
+          },
+          "example": {
+            "type": "dashscope-instruct",
+            "instructions": "用松弛、克制的脱口秀语气说，包袱前短暂停顿"
+          }
+        }
+      },
+      "timing": "align"
+    },
+    {
       "id": "openai-gpt-4o-mini-tts",
       "compatibleRunners": ["api"],
+      "compatibleProtocols": ["openai-compatible"],
       "match": { "runner": "api", "provider": "openai", "modelSuffix": "gpt-4o-mini-tts" },
       "execution": "sequential",
       "controls": ["openai-speech"],
@@ -301,6 +347,14 @@
           }
         }
       },
+      "timing": "align"
+    },
+    {
+      "id": "api-single-neutral",
+      "compatibleRunners": ["api"],
+      "compatibleProtocols": ["openai-compatible"],
+      "execution": "single",
+      "controls": ["none"],
       "timing": "align"
     }
   ]

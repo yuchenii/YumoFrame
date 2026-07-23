@@ -34,6 +34,7 @@ import {
 } from "../packages/cli/dist/commands/synthesize.js";
 import {
   apiSpeechBody,
+  cosyVoiceSpeechBody,
   dashscopeSpeechBody,
   processorEnvironmentDir,
   runApiSpeech,
@@ -50,6 +51,7 @@ import { parseConfig, parseTranscript } from "../packages/cli/dist/core/json.js"
 import {
   parseSpeechPlan,
   resolveTtsProfile,
+  resolveTtsProtocol,
   validateSpeechPlan,
   validateTtsConfiguration,
 } from "../packages/cli/dist/media/tts-plan.js";
@@ -1435,7 +1437,7 @@ test("speech plan parser enforces source fidelity and model-specific controls", 
         profile: "qwen3-custom-voice",
         options: { model: "Qwen/Qwen3-TTS-12Hz-1.7B-Base", speaker: "Vivian" },
       }),
-    /not compatible/,
+    /requires profile 'qwen3-base'/,
   );
   assert.throws(() => validateSpeechPlan(plan, "你好！", base), /exactly reproduce/);
   assert.throws(
@@ -1542,6 +1544,11 @@ test("DashScope uses its native Qwen TTS request and downloads returned audio", 
   };
   const profile = resolveTtsProfile(processor);
   assert.equal(profile.id, "dashscope-qwen3-tts-instruct-flash");
+  assert.equal(resolveTtsProtocol(processor), "dashscope-qwen-http");
+  assert.throws(
+    () => resolveTtsProfile({ ...processor, protocol: "dashscope-cosyvoice-http" }),
+    /requires protocol 'dashscope-qwen-http'/,
+  );
   const plan = parseSpeechPlan(
     JSON.stringify({
       version: "0.1.0",
@@ -1654,6 +1661,108 @@ test("DashScope uses its native Qwen TTS request and downloads returned audio", 
   assert.equal(JSON.parse(requests[0].init.body).input.instructions, "开心自然");
   assert.equal(requests[1].url, "https://audio.example/speech.wav");
   assert.equal(readFileSync(output, "utf8"), "wav-bytes");
+});
+
+test("DashScope CosyVoice uses its non-streaming protocol and singular instruction", async () => {
+  const processor = {
+    runner: "api",
+    provider: "dashscope",
+    model: "cosyvoice-v3.5-plus",
+    voice: "cosyvoice-v3.5-plus-vd-comedy-example",
+    apiKeyEnv: "YF_TEST_DASHSCOPE_KEY",
+    options: {
+      instructions: "用松弛的脱口秀语气说",
+      languageHints: ["zh"],
+    },
+  };
+  assert.equal(resolveTtsProfile(processor).id, "dashscope-cosyvoice-instruct");
+  assert.equal(resolveTtsProtocol(processor), "dashscope-cosyvoice-http");
+  assert.equal(
+    resolveTtsProfile({ ...processor, model: "cosyvoice-v3.5-flash" }).id,
+    "dashscope-cosyvoice-instruct",
+  );
+  assert.deepEqual(
+    cosyVoiceSpeechBody(processor, {
+      text: "你好",
+      outPath: "voice.wav",
+      options: { instructions: "包袱前停顿" },
+    }),
+    {
+      model: "cosyvoice-v3.5-plus",
+      input: {
+        text: "你好",
+        voice: "cosyvoice-v3.5-plus-vd-comedy-example",
+        format: "wav",
+        sample_rate: 24000,
+        instruction: "包袱前停顿",
+        language_hints: ["zh"],
+      },
+    },
+  );
+  assert.throws(
+    () =>
+      cosyVoiceSpeechBody(processor, {
+        text: "你好",
+        outPath: "voice.m4a",
+      }),
+    /output format 'm4a' is not supported/,
+  );
+  assert.throws(
+    () =>
+      cosyVoiceSpeechBody(
+        { ...processor, options: { ...processor.options, languageHints: ["cn"] } },
+        { text: "你好", outPath: "voice.wav" },
+      ),
+    /exactly one supported language/,
+  );
+
+  const outputDir = mkdtempSync(join(tmpdir(), "yumoframe-cosyvoice-"));
+  const requests = [];
+  const originalFetch = globalThis.fetch;
+  process.env.YF_TEST_DASHSCOPE_KEY = "test-key";
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), init });
+    if (String(url).endsWith("/services/audio/tts/SpeechSynthesizer")) {
+      const model = JSON.parse(init.body).model;
+      return new Response(
+        JSON.stringify({ output: { audio: { url: `https://audio.example/${model}.wav` } } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return new Response(Buffer.from(String(url)), { status: 200 });
+  };
+  try {
+    for (const model of ["cosyvoice-v3.5-plus", "cosyvoice-v3.5-flash"]) {
+      const voice = `${model}-vd-comedy-example`;
+      await runApiSpeech(
+        { ...processor, model, voice },
+        {
+          text: "你好",
+          outPath: join(outputDir, `${model}.wav`),
+          options: { instructions: "包袱前停顿" },
+        },
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.YF_TEST_DASHSCOPE_KEY;
+  }
+  for (const [index, model] of ["cosyvoice-v3.5-plus", "cosyvoice-v3.5-flash"].entries()) {
+    const request = requests[index * 2];
+    assert.equal(
+      request.url,
+      "https://dashscope.aliyuncs.com/api/v1/services/audio/tts/SpeechSynthesizer",
+    );
+    assert.equal(request.init.headers["X-DashScope-SSE"], undefined);
+    assert.equal(JSON.parse(request.init.body).model, model);
+    assert.equal(JSON.parse(request.init.body).input.voice, `${model}-vd-comedy-example`);
+    assert.equal(JSON.parse(request.init.body).input.instruction, "包袱前停顿");
+    assert.equal(JSON.parse(request.init.body).input.instructions, undefined);
+    assert.equal(
+      readFileSync(join(outputDir, `${model}.wav`), "utf8"),
+      `https://audio.example/${model}.wav`,
+    );
+  }
 });
 
 test("forced alignment reads the suffix-replaced FunASR output", async () => {

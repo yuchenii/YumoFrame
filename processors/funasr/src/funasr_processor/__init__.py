@@ -1,4 +1,4 @@
-"""YumoFrame FunASR media-text processor package."""
+"""YumoFrame FunASR processor package."""
 
 from .cli import normalize_results
 

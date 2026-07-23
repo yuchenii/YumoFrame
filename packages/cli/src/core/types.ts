@@ -54,6 +54,7 @@ export interface SpeechPlan {
 }
 
 export type TtsExecutionMode = "native-batch" | "persistent-loop" | "sequential" | "single";
+export type ApiProtocol = "openai-compatible" | "dashscope-qwen-http" | "dashscope-cosyvoice-http";
 
 export interface TtsProfile {
   id: string;
@@ -81,6 +82,7 @@ export interface TtsCapabilities {
     processor?: string;
     model?: string;
     profile: string;
+    protocol?: ApiProtocol;
     language?: string;
     speaker?: string;
     voice?: string;
@@ -89,8 +91,12 @@ export interface TtsCapabilities {
   };
   available?: {
     models: {
+      runner: Processor["runner"];
+      provider?: string;
+      processor?: string;
       model: string;
       profile: string;
+      protocol?: ApiProtocol;
       sources?: { provider: "modelscope" | "huggingface"; model: string }[];
     }[];
     voices?: { speaker: string; description: string; nativeLanguage: string }[];
@@ -122,6 +128,8 @@ export interface ApiProcessor {
   runner: "api";
   /** `openai` | `dashscope` | custom; selects the default baseUrl. */
   provider: string;
+  /** Stable wire protocol; optional only for models in the built-in catalog. */
+  protocol?: ApiProtocol;
   profile?: string;
   baseUrl?: string;
   model?: string;

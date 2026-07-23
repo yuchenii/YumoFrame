@@ -2,8 +2,9 @@
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { resolve } from "node:path";
+import { extname, resolve } from "node:path";
 import type { ApiProcessor } from "../core/types.ts";
+import { resolveTtsProtocol } from "./tts-plan.ts";
 
 /** Command, args, and env used to invoke a spawn-based processor. */
 export interface ProcessInvocation {
@@ -67,7 +68,6 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
   dashscope: "https://dashscope.aliyuncs.com/api/v1",
 };
 
-const DASHSCOPE_PROVIDERS = new Set(["dashscope"]);
 const DASHSCOPE_LANGUAGES = new Set([
   "Auto",
   "Chinese",
@@ -80,6 +80,24 @@ const DASHSCOPE_LANGUAGES = new Set([
   "Korean",
   "French",
   "Russian",
+]);
+const COSYVOICE_LANGUAGES = new Set([
+  "zh",
+  "en",
+  "fr",
+  "de",
+  "ja",
+  "ko",
+  "ru",
+  "pt",
+  "th",
+  "id",
+  "vi",
+  "es",
+  "it",
+  "ms",
+  "fil",
+  "ar",
 ]);
 
 /** Build the native DashScope input body from the small supported option set. */
@@ -125,6 +143,44 @@ export function dashscopeSpeechBody(
   };
 }
 
+/** Build a non-streaming CosyVoice request while keeping the output suffix authoritative. */
+export function cosyVoiceSpeechBody(
+  spec: ApiProcessor,
+  io: { text: string; outPath: string; options?: Record<string, unknown> },
+): Record<string, unknown> {
+  const options = { ...spec.options, ...io.options };
+  const instructions = options.instructions;
+  const languageHints = options.languageHints;
+  if (typeof instructions !== "string" || !instructions.trim()) {
+    throw new Error("CosyVoice instructions must be a non-empty string");
+  }
+  if (
+    languageHints !== undefined &&
+    (!Array.isArray(languageHints) ||
+      languageHints.length !== 1 ||
+      languageHints.some((value) => typeof value !== "string" || !COSYVOICE_LANGUAGES.has(value)))
+  ) {
+    throw new Error(
+      "processors.tts.options.languageHints must contain exactly one supported language",
+    );
+  }
+  const format = extname(io.outPath).slice(1).toLowerCase() || "wav";
+  if (!["wav", "mp3", "opus"].includes(format)) {
+    throw new Error(`CosyVoice output format '${format}' is not supported`);
+  }
+  return {
+    model: spec.model,
+    input: {
+      text: io.text,
+      voice: spec.voice,
+      format,
+      sample_rate: 24000,
+      instruction: instructions,
+      ...(languageHints === undefined ? {} : { language_hints: languageHints }),
+    },
+  };
+}
+
 /**
  * Synthesize speech via DashScope's native endpoint or an OpenAI-compatible endpoint.
  * @param spec API processor config (provider/baseUrl/model/voice/apiKeyEnv/options).
@@ -139,7 +195,8 @@ export async function runApiSpeech(
     throw new Error(
       `Unknown API provider '${spec.provider}'; set processors.tts.baseUrl explicitly`,
     );
-  const dashscope = DASHSCOPE_PROVIDERS.has(spec.provider);
+  const protocol = resolveTtsProtocol(spec);
+  const dashscope = protocol?.startsWith("dashscope-") ?? false;
   if (dashscope && !spec.apiKeyEnv)
     throw new Error("processors.tts.apiKeyEnv is required for DashScope");
   if (dashscope && !spec.voice) throw new Error("processors.tts.voice is required for DashScope");
@@ -147,17 +204,26 @@ export async function runApiSpeech(
   if (spec.apiKeyEnv && !key) throw new Error(`Missing API key: set $${spec.apiKeyEnv}`);
   if (!spec.model) throw new Error("processors.tts.model is required for api runner");
 
-  const response = await fetch(
-    `${baseUrl.replace(/\/$/, "")}${dashscope ? "/services/aigc/multimodal-generation/generation" : "/audio/speech"}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(key ? { Authorization: `Bearer ${key}` } : {}),
-      },
-      body: JSON.stringify(dashscope ? dashscopeSpeechBody(spec, io) : apiSpeechBody(spec, io)),
+  const request =
+    protocol === "dashscope-qwen-http"
+      ? {
+          path: "/services/aigc/multimodal-generation/generation",
+          body: dashscopeSpeechBody(spec, io),
+        }
+      : protocol === "dashscope-cosyvoice-http"
+        ? {
+            path: "/services/audio/tts/SpeechSynthesizer",
+            body: cosyVoiceSpeechBody(spec, io),
+          }
+        : { path: "/audio/speech", body: apiSpeechBody(spec, io) };
+  const response = await fetch(`${baseUrl.replace(/\/$/, "")}${request.path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(key ? { Authorization: `Bearer ${key}` } : {}),
     },
-  );
+    body: JSON.stringify(request.body),
+  });
   if (!response.ok)
     throw new Error(`TTS API ${spec.provider} failed: ${response.status} ${await response.text()}`);
   if (!dashscope) {

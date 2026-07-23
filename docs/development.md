@@ -59,7 +59,7 @@ npx skills add yuchenii/YumoFrame --skill yumoframe
 
 `@yumoframe/cli` 是私有 workspace 包：`exports` 指向 `.ts` 源文件，只给模板 Adapter 的 TypeScript / Vite 构建用，**不是**给 Node 在运行时直接 `import` 的入口。
 
-`processors/tts-profiles.json` 是模型和 profile 到控制参数映射的唯一事实来源。README 可以向用户概述当前的内置映射，但 Skill 必须调用 `yumoframe synthesize --capabilities`，不能复制该表；这样新增 profile 后无需再次修改 Skill。由 `yumoframe` Skill 发起的每一次配音都必须先生成并审核分句级 `speech.json`，再调用 `synthesize --plan`。整段文本直接合成仍可用于 Skill 之外的 CLI 调用。
+`processors/tts-profiles.json` 是本地/API 模型、协议、profile 和控制参数映射的唯一事实来源。内置 API 模型必须固定一组已验证的 `protocol + profile`；未知 API 模型只允许由用户显式组合已注册且兼容的协议与 profile。README 可以向用户概述当前的内置映射，但 Skill 必须调用 `yumoframe synthesize --capabilities`，不能复制该表；这样新增 profile 后无需再次修改 Skill。由 `yumoframe` Skill 发起的每一次配音都必须先生成并审核分句级 `speech.json`，再调用 `synthesize --plan`。整段文本直接合成仍可用于 Skill 之外的 CLI 调用。
 
 Plan 模式按分片计算时间：TTS worker 输出有序分片；一个 FunASR 进程分别对齐各分片；TypeScript 根据每个分片的实测时长和 `pauseAfterMs` 累加时间偏移；ffmpeg 合并同一批分片。不要改成整条音轨文本匹配或按字符数估算时间。如果任一分片的对齐结果不可信，应使用配置的 ASR 对最终音频完整识别一次，并要求人工校对 transcript。
 

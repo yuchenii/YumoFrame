@@ -60,7 +60,7 @@ export function transcribeInvocation({
       "--project",
       resolve(PACKAGE_ROOT, "processors", "funasr"),
       "--locked",
-      "media-text",
+      "funasr-processor",
       mediaPath,
       "-o",
       outputBase,

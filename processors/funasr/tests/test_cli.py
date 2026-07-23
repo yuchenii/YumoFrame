@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from media_text.cli import (
+from funasr_processor.cli import (
     main,
     normalize_alignment,
     normalize_results,
@@ -168,8 +168,8 @@ class AlignManifestTest(unittest.TestCase):
 
             with (
                 patch.dict(sys.modules, {"funasr": SimpleNamespace(AutoModel=auto_model)}),
-                patch("media_text.cli.convert_to_wav"),
-                patch("media_text.cli.wav_duration", side_effect=[1.0, 1.0]),
+                patch("funasr_processor.cli.convert_to_wav"),
+                patch("funasr_processor.cli.wav_duration", side_effect=[1.0, 1.0]),
             ):
                 main(
                     [
@@ -232,9 +232,9 @@ class AlignManifestTest(unittest.TestCase):
                     sys.modules,
                     {"funasr": SimpleNamespace(AutoModel=Mock(return_value=model))},
                 ),
-                patch("media_text.cli.convert_to_wav"),
+                patch("funasr_processor.cli.convert_to_wav"),
                 patch(
-                    "media_text.cli.wav_duration",
+                    "funasr_processor.cli.wav_duration",
                     side_effect=[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0],
                 ),
             ):
@@ -274,8 +274,8 @@ class MainDispatchTest(unittest.TestCase):
             payload = {"segments": []}
 
             with (
-                patch("media_text.cli.transcribe", return_value=payload) as transcribe,
-                patch("media_text.cli.write_outputs") as write_outputs,
+                patch("funasr_processor.cli.transcribe", return_value=payload) as transcribe,
+                patch("funasr_processor.cli.write_outputs") as write_outputs,
             ):
                 main([str(source), "--device", "cpu"])
 
@@ -293,8 +293,8 @@ class MainDispatchTest(unittest.TestCase):
             payload = {"segments": []}
 
             with (
-                patch("media_text.cli.align", return_value=payload) as align,
-                patch("media_text.cli.write_outputs") as write_outputs,
+                patch("funasr_processor.cli.align", return_value=payload) as align,
+                patch("funasr_processor.cli.write_outputs") as write_outputs,
             ):
                 main([str(source), "--align", str(text_path), "--device", "cpu"])
 

@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { PACKAGE_ROOT } from "../core/package-root.ts";
 import type {
+  ApiProtocol,
   Processor,
   SpeechControl,
   SpeechPlan,
@@ -14,12 +15,14 @@ import type {
 type JsonRecord = Record<string, unknown>;
 type RegisteredProfile = TtsProfile & {
   compatibleRunners?: Processor["runner"][];
+  compatibleProtocols?: ApiProtocol[];
   match?: { runner?: string; name?: string; provider?: string | string[]; modelSuffix?: string };
 };
 type RegisteredModel = {
   runner: Processor["runner"];
   processor?: string;
-  provider?: string | string[];
+  provider?: string;
+  protocol?: ApiProtocol;
   model: string;
   profile: string;
   sources?: { provider: "modelscope" | "huggingface"; model: string }[];
@@ -36,6 +39,11 @@ type TtsRegistry = {
 };
 
 const registryPath = resolve(PACKAGE_ROOT, "processors", "tts-profiles.json");
+const API_PROTOCOLS = new Set<ApiProtocol>([
+  "openai-compatible",
+  "dashscope-qwen-http",
+  "dashscope-cosyvoice-http",
+]);
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const finite = (value: unknown): value is number =>
@@ -246,7 +254,7 @@ function processorMatches(
   return model.split(/[/\\]snapshots[/\\]/, 1)[0]!.endsWith(profile.match.modelSuffix);
 }
 
-function resolveProfile(processor: Processor, registered: RegisteredProfile[]): TtsProfile {
+function fallbackProfile(processor: Processor, registered: RegisteredProfile[]): TtsProfile {
   if (processor.profile) {
     const selected = registered.find((profile) => profile.id === processor.profile);
     if (!selected) throw new Error(`Unknown processors.tts.profile '${processor.profile}'`);
@@ -264,9 +272,104 @@ function resolveProfile(processor: Processor, registered: RegisteredProfile[]): 
   return publicProfile(selected);
 }
 
+function configuredModel(processor: Processor): string | undefined {
+  if (processor.runner === "uv") return configuredString(processor.options?.model);
+  if (processor.runner === "api") return configuredString(processor.model);
+  return undefined;
+}
+
+function registeredModel(
+  processor: Processor,
+  models: RegisteredModel[],
+): RegisteredModel | undefined {
+  const model = configuredModel(processor);
+  return model
+    ? models.find((entry) => catalogMatches(entry, processor) && entry.model === model)
+    : undefined;
+}
+
+function knownApiProtocol(value: string): value is ApiProtocol {
+  return API_PROTOCOLS.has(value as ApiProtocol);
+}
+
+function registeredProfile(
+  id: string,
+  processor: Processor,
+  profiles: RegisteredProfile[],
+  protocol?: ApiProtocol,
+): RegisteredProfile {
+  const profile = profiles.find((entry) => entry.id === id);
+  if (!profile) throw new Error(`Unknown processors.tts.profile '${id}'`);
+  if (
+    !processorMatches(profile, processor, false) ||
+    (protocol && profile.compatibleProtocols && !profile.compatibleProtocols.includes(protocol))
+  ) {
+    throw new Error(
+      `TTS profile '${id}' is not compatible with the configured ${processor.runner} processor`,
+    );
+  }
+  return profile;
+}
+
+/** Resolve one configured processor to its executable profile and API wire protocol. */
+export function resolveTtsSelection(processor: Processor): {
+  profile: TtsProfile;
+  protocol?: ApiProtocol;
+} {
+  const registered = registry();
+  const model = registeredModel(processor, registered.models);
+  if (model) {
+    if (processor.profile && processor.profile !== model.profile) {
+      throw new Error(
+        `Model '${model.model}' requires profile '${model.profile}', not '${processor.profile}'`,
+      );
+    }
+    if (processor.runner === "api" && processor.protocol && processor.protocol !== model.protocol) {
+      throw new Error(
+        `Model '${model.model}' requires protocol '${model.protocol}', not '${processor.protocol}'`,
+      );
+    }
+    if (processor.runner === "api" && !model.protocol)
+      throw new Error(`Built-in API model '${model.model}' has no protocol`);
+    const profile = registeredProfile(
+      model.profile,
+      processor,
+      registered.profiles,
+      model.protocol,
+    );
+    return {
+      profile: publicProfile(profile),
+      ...(model.protocol ? { protocol: model.protocol } : {}),
+    };
+  }
+  if (processor.runner === "api") {
+    if (!processor.protocol || !processor.profile) {
+      throw new Error(
+        `Unknown API model '${processor.model ?? ""}' requires explicit processors.tts.protocol and processors.tts.profile`,
+      );
+    }
+    if (!knownApiProtocol(processor.protocol)) {
+      throw new Error(`Unknown processors.tts.protocol '${processor.protocol}'`);
+    }
+    const profile = registeredProfile(
+      processor.profile,
+      processor,
+      registered.profiles,
+      processor.protocol,
+    );
+    return { profile: publicProfile(profile), protocol: processor.protocol };
+  }
+  return { profile: fallbackProfile(processor, registered.profiles) };
+}
+
 /** Resolve the active processor/model to a packaged capability profile. */
 export function resolveTtsProfile(processor: Processor): TtsProfile {
-  return resolveProfile(processor, registry().profiles);
+  return resolveTtsSelection(processor).profile;
+}
+
+/** Resolve the stable wire protocol used by an API model. */
+export function resolveTtsProtocol(processor: Processor): ApiProtocol | undefined {
+  return resolveTtsSelection(processor).protocol;
 }
 
 /** Return the configured download sources for a packaged model. */
@@ -300,7 +403,8 @@ function configuredString(value: unknown): string | undefined {
 /** Report safe configured values plus the packaged catalog without loading a TTS model. */
 export function resolveTtsCapabilities(processor: Processor): TtsCapabilities {
   const registered = registry();
-  const profile = resolveProfile(processor, registered.profiles);
+  const selection = resolveTtsSelection(processor);
+  const profile = selection.profile;
   const options = processor.runner === "command" ? undefined : processor.options;
   const model =
     processor.runner === "uv"
@@ -321,6 +425,7 @@ export function resolveTtsCapabilities(processor: Processor): TtsCapabilities {
     ...(processor.runner === "api" ? { provider: processor.provider } : {}),
     ...(model ? { model } : {}),
     profile: profile.id,
+    ...(selection.protocol ? { protocol: selection.protocol } : {}),
     ...(language ? { language } : {}),
     ...(processor.runner === "uv" && speaker ? { speaker } : {}),
     ...(processor.runner === "api" && configuredString(processor.voice)
@@ -329,13 +434,17 @@ export function resolveTtsCapabilities(processor: Processor): TtsCapabilities {
     ...(device ? { device } : {}),
     ...(modelSource ? { modelSource } : {}),
   };
-  const models = registered.models
-    .filter((entry) => catalogMatches(entry, processor))
-    .map(({ model, profile: modelProfile, sources }) => ({
+  const models = registered.models.map(
+    ({ runner, processor, provider, protocol, model, profile: modelProfile, sources }) => ({
+      runner,
+      ...(processor ? { processor } : {}),
+      ...(provider ? { provider } : {}),
       model,
       profile: modelProfile,
+      ...(protocol ? { protocol } : {}),
       ...(sources ? { sources } : {}),
-    }));
+    }),
+  );
   const voices = registered.voices
     .filter((entry) => catalogMatches(entry, processor))
     .map(({ speaker, description, nativeLanguage }) => ({ speaker, description, nativeLanguage }));

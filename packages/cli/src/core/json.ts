@@ -71,7 +71,8 @@ function processor(value: unknown, label: string): void {
     }
   } else {
     stringField(spec, "provider", label);
-    for (const key of ["baseUrl", "model", "voice", "apiKeyEnv"]) optionalString(spec, key, label);
+    for (const key of ["protocol", "baseUrl", "model", "voice", "apiKeyEnv"])
+      optionalString(spec, key, label);
     if (spec.options !== undefined) record(spec.options, `${label}.options`);
   }
 }

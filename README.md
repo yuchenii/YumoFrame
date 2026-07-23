@@ -87,13 +87,13 @@ yumoframe doctor          # 检查 Node、uv、ffmpeg、模板与 processors
 
 `synthesize`（别名 `tts`）用 `processors.tts` 把文本合成为声轨。按 `runner` 选择引擎：
 
-| runner    | 用途                                  | 用户需要         |
-| --------- | ------------------------------------- | ---------------- |
-| `uv`      | 包内本地引擎（默认 Qwen3-TTS）        | uv；首次会下模型 |
-| `command` | 外部 CLI（如 `uvx edge-tts`）         | 有 uv 即可       |
-| `api`     | 线上 TTS（DashScope / OpenAI 兼容等） | API key          |
+| runner    | 用途                                                  | 用户需要         |
+| --------- | ----------------------------------------------------- | ---------------- |
+| `uv`      | 包内本地引擎（默认 Qwen3-TTS）                        | uv；首次会下模型 |
+| `command` | 外部 CLI（如 `uvx edge-tts`）                         | 有 uv 即可       |
+| `api`     | 线上 TTS（DashScope Qwen / CosyVoice、OpenAI 兼容等） | API key          |
 
-默认新项目：本地 Qwen3-TTS 0.6B + Vivian，并用 FunASR `fa-zh` 给已知原文标时间。内置模型默认从 ModelScope 下载并复用同源缓存；中断后再次运行会继续下载，不会自动换源。Skill 配音流程必须先审核 `speech.json`，再 `yumoframe synthesize --plan`；也可用裸 `synthesize` 做整段合成。
+默认新项目：本地 Qwen3-TTS 0.6B + Vivian，并用 FunASR `fa-zh` 给已知原文标时间。内置模型默认从 ModelScope 下载并复用同源缓存；中断后再次运行会继续下载，不会自动换源。API 模型与本地模型由同一注册表声明；内置模型自动确定协议和 profile，自定义 API 模型必须显式配置二者。Skill 配音流程必须先审核 `speech.json`，再 `yumoframe synthesize --plan`；也可用裸 `synthesize` 做整段合成。
 
 ```bash
 yumoframe synthesize --capabilities   # 查看当前模型允许的 control

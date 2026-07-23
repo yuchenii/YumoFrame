@@ -329,7 +329,7 @@ async function forcedAlign(
           `Forced aligner '${align.name}' is not bundled yet; use runner "command" or provide TTS subtitles`,
         );
       }
-      // funasr: media-text <audio> --align <text> -o <base>; options (e.g. model) forwarded as flags.
+      // funasr: funasr-processor <audio> --align <text> -o <base>; options forwarded as flags.
       await run(
         align.uvBin || "uv",
         [
@@ -337,7 +337,7 @@ async function forcedAlign(
           "--project",
           projectDir,
           "--locked",
-          "media-text",
+          "funasr-processor",
           audioPath,
           "--align",
           textPath,
@@ -408,7 +408,7 @@ async function alignFragments(
           "--project",
           projectDir,
           "--locked",
-          "media-text",
+          "funasr-processor",
           "--align-manifest",
           manifestPath,
           "-o",

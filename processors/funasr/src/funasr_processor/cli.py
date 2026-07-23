@@ -1,4 +1,4 @@
-"""FunASR CLI: convert audio/video to timestamped Chinese transcript JSON + TXT."""
+"""YumoFrame FunASR CLI: transcribe or align audio."""
 
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ def transcribe(
     """
     from funasr import AutoModel
 
-    with tempfile.TemporaryDirectory(prefix="media-text-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="funasr-processor-") as temp_dir:
         wav_path = Path(temp_dir) / "audio.wav"
         convert_to_wav(source, wav_path)
         duration = wav_duration(wav_path)
@@ -286,7 +286,7 @@ def align(source: Path, text: str, device: str, model_name: str | None, model_so
     """
     from funasr import AutoModel
 
-    with tempfile.TemporaryDirectory(prefix="media-text-fa-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="funasr-processor-fa-") as temp_dir:
         wav_path = Path(temp_dir) / "audio.wav"
         convert_to_wav(source, wav_path)
         duration = wav_duration(wav_path)
@@ -347,7 +347,7 @@ def align_manifest(path: Path, device: str, model_name: str | None, model_source
     items = load_align_manifest(path)
     model = AutoModel(model=model_name or "fa-zh", device=device, hub=MODEL_SOURCES[model_source])
     output_items: list[dict] = []
-    with tempfile.TemporaryDirectory(prefix="media-text-fa-manifest-") as temp_dir:
+    with tempfile.TemporaryDirectory(prefix="funasr-processor-fa-manifest-") as temp_dir:
         for index, item in enumerate(items):
             wav_path = Path(temp_dir) / f"{index:04d}.wav"
             convert_to_wav(item["source"], wav_path)
@@ -394,7 +394,7 @@ def write_json_output(payload: dict, output: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the ``media-text`` / FunASR CLI argument parser."""
+    """Build the ``funasr-processor`` CLI argument parser."""
     parser = argparse.ArgumentParser(
         description="Extract timestamped Chinese text from audio or video with FunASR."
     )

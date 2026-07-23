@@ -83,7 +83,7 @@ skill 安装 ── npx skills add → skills/yumoframe（不经 CLI）
 
 `options` 里的键透传成 `--kebab` flag（如 `maxSegmentMs → --max-segment-ms`、`model → --model`），本地 uv 引擎因此可指定模型。三个 processor 结束时都落地文件（transcript.json 或音频），文件缝契约稳定，`api` 也不需要常驻服务。
 
-分段配音能力和内置模型可选下载源由包内 `processors/tts-profiles.json` 统一声明，CLI、Skill 和 Qwen processor 共用。`modelSource` 从来源数组中选择平台，未指定时优先 ModelScope；运行时不根据 404 或网络错误自动改选。`speech.json` 的 `intent` 保留与模型无关的表演意图，`control` 是 profile 允许的模型参数；切换模型只重新生成 control。Qwen processor 复用所选来源的完整缓存，缓存不完整时由同一平台继续下载。plan worker 随后在一个 Python 进程中加载一次模型并批量输出片段。FunASR 在另一个进程中只加载一次对齐模型，逐片返回时间戳；TypeScript 按片段真实时长和明确停顿累加偏移，再用 ffmpeg 合并同一批片段。任一片段不可信时，整条最终音频统一降级到 ASR，不混用时间来源。未知 command/API 默认 `single + none`，不会猜测或忽略语气字段。
+分段配音能力、本地模型下载源和 API 模型协议由包内 `processors/tts-profiles.json` 统一声明，CLI、Skill 和 Qwen processor 共用。`modelSource` 从来源数组中选择平台，未指定时优先 ModelScope；运行时不根据 404 或网络错误自动改选。内置 API 模型固定其 `protocol + profile`，配置冲突直接报错；未知 API 模型必须显式指定一组已注册且兼容的 `protocol + profile`，避免猜错请求格式后发起付费调用。`speech.json` 的 `intent` 保留与模型无关的表演意图，`control` 是 profile 允许的模型参数；切换模型只重新生成 control。Qwen processor 复用所选来源的完整缓存，缓存不完整时由同一平台继续下载。plan worker 随后在一个 Python 进程中加载一次模型并批量输出片段。FunASR 在另一个进程中只加载一次对齐模型，逐片返回时间戳；TypeScript 按片段真实时长和明确停顿累加偏移，再用 ffmpeg 合并同一批片段。任一片段不可信时，整条最终音频统一降级到 ASR，不混用时间来源。未知 command 仍保守使用 `single + none`。
 
 ## npm 包内容
 
