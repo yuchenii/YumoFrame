@@ -31,6 +31,8 @@
 
 官方没有给出可靠的显存门槛。没有可用加速器或优先速度时选 0.6B；检测到 CUDA/MPS、愿意承担更高内存与等待时间且更重视质量时，可选 1.7B。VoiceDesign/Base 按用途选择，不应只看参数量。
 
+本地 processor 默认把 MPS/CUDA allocator 限制在可用设备内存的 `0.8`，并在 plan 模式逐段生成、每段立即写盘，避免段数抬高峰值。可在 `processors.tts.options.memoryFraction` 中设置 `0 < 值 <= 1`；CPU 没有 PyTorch 原生的进程内存比例限制，但同样使用逐段生成。
+
 ```jsonc
 // 1.7B 内置音色
 "options": {"model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "modelSource": "modelscope", "language": "Chinese", "speaker": "Vivian", "device": "auto"}
@@ -100,15 +102,15 @@ yumoframe synthesize --plan speech.json   # 按审核后的计划分段生成、
 
 | 引擎 / 模型                          | control              | 分段执行                 |
 | ------------------------------------ | -------------------- | ------------------------ |
-| Qwen3-TTS CustomVoice                | `qwen-instruct`      | 本地一次加载、批量生成   |
-| Qwen3-TTS VoiceDesign                | `qwen-voice-design`  | 本地一次加载、批量生成   |
-| Qwen3-TTS Base                       | `none`               | 本地批量生成，仅中性表达 |
+| Qwen3-TTS CustomVoice                | `qwen-instruct`      | 本地一次加载、逐段生成   |
+| Qwen3-TTS VoiceDesign                | `qwen-voice-design`  | 本地一次加载、逐段生成   |
+| Qwen3-TTS Base                       | `none`               | 本地逐段生成，仅中性表达 |
 | edge-tts（`edge-tts` profile）       | `edge-prosody`       | 顺序生成                 |
 | DashScope `qwen3-tts-instruct-flash` | `dashscope-instruct` | 顺序调用 API             |
 | DashScope `qwen3-tts-flash`          | `none`               | 仅整段、中性表达         |
 | OpenAI `gpt-4o-mini-tts`             | `openai-speech`      | 顺序调用 API             |
 
-本地 Qwen 对整个计划只加载一次模型，并使用批量 API 输出片段；VoiceDesign 会把计划中唯一的 `voice.description` 自动加到每段语气指令前，减少分段间音色漂移。线上分段 profile 按顺序调用 API。每个片段在合并前分别用 FunASR `fa-zh` 对齐，然后按前面片段的真实音频时长和 `pauseAfterMs` 累加偏移；ffmpeg 再用同一批片段合成最终音轨。这样不会把跨段停顿压进全文时间轴，也不会按字数估算时间。
+本地 Qwen 对整个计划只加载一次模型，并在同一进程中逐段生成、立即写出片段；VoiceDesign 会把计划中唯一的 `voice.description` 自动加到每段语气指令前，减少分段间音色漂移。线上分段 profile 按顺序调用 API。每个片段在合并前分别用 FunASR `fa-zh` 对齐，然后按前面片段的真实音频时长和 `pauseAfterMs` 累加偏移；ffmpeg 再用同一批片段合成最终音轨。这样不会把跨段停顿压进全文时间轴，也不会按字数估算时间。
 
 ## 时间从哪来（自动三档降级）
 

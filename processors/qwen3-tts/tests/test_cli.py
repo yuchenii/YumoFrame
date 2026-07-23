@@ -4,10 +4,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from qwen3_tts_processor.cli import (
+    DEFAULT_MEMORY_FRACTION,
     DEFAULT_MODEL,
+    _set_device_memory_limit,
     _complete_snapshot,
     _is_local_model_path,
     build_parser,
@@ -20,6 +22,9 @@ from qwen3_tts_processor.cli import (
 
 
 class FakeModel:
+    def __init__(self):
+        self.calls = []
+
     @staticmethod
     def _wavs(kwargs):
         count = len(kwargs["text"]) if isinstance(kwargs["text"], list) else 1
@@ -27,14 +32,17 @@ class FakeModel:
 
     def generate_custom_voice(self, **kwargs):
         self.call = ("custom_voice", kwargs)
+        self.calls.append(self.call)
         return self._wavs(kwargs)
 
     def generate_voice_design(self, **kwargs):
         self.call = ("voice_design", kwargs)
+        self.calls.append(self.call)
         return self._wavs(kwargs)
 
     def generate_voice_clone(self, **kwargs):
         self.call = ("voice_clone", kwargs)
+        self.calls.append(self.call)
         return self._wavs(kwargs)
 
     def create_voice_clone_prompt(self, **kwargs):
@@ -43,6 +51,17 @@ class FakeModel:
 
 
 class Qwen3TtsCliTest(unittest.TestCase):
+    def test_accelerator_memory_fraction_is_limited_before_model_loading(self) -> None:
+        torch = Mock()
+
+        _set_device_memory_limit(torch, "cuda:0", 0.7)
+        torch.cuda.set_per_process_memory_fraction.assert_called_once_with(0.7, "cuda:0")
+        _set_device_memory_limit(torch, "mps", 0.8)
+        torch.mps.set_per_process_memory_fraction.assert_called_once_with(0.8)
+        _set_device_memory_limit(torch, "cpu", 0.9)
+        with self.assertRaisesRegex(ValueError, "greater than 0"):
+            _set_device_memory_limit(torch, "cpu", 0)
+
     def test_only_explicit_filesystem_syntax_is_a_local_model_path(self) -> None:
         self.assertFalse(_is_local_model_path(DEFAULT_MODEL))
         self.assertFalse(_is_local_model_path(r"C:models\qwen"))
@@ -76,6 +95,7 @@ class Qwen3TtsCliTest(unittest.TestCase):
         self.assertEqual(args.speaker, "Vivian")
         self.assertEqual(args.language, "Chinese")
         self.assertEqual(args.model_source, "modelscope")
+        self.assertEqual(args.memory_fraction, DEFAULT_MEMORY_FRACTION)
         self.assertEqual(choose_device("cpu"), "cpu")
 
         model = FakeModel()
@@ -191,7 +211,7 @@ class Qwen3TtsCliTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"\.wav"):
             synthesize("你好", Path("voice.mp3"), model=FakeModel(), writer=lambda *_: None)
 
-    def test_plan_batches_segments_with_per_item_instructions(self) -> None:
+    def test_plan_generates_segments_sequentially_with_per_item_instructions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             plan = root / "speech.json"
@@ -227,9 +247,13 @@ class Qwen3TtsCliTest(unittest.TestCase):
                 writer=lambda *values: writes.append(values),
             )
 
-            self.assertEqual(model.call[0], "custom_voice")
-            self.assertEqual(model.call[1]["text"], ["第一句。", "第二句！"])
-            self.assertEqual(model.call[1]["instruct"], ["平静", "惊讶"])
+            self.assertEqual(
+                [(kind, kwargs["text"], kwargs["instruct"]) for kind, kwargs in model.calls],
+                [
+                    ("custom_voice", "第一句。", "平静"),
+                    ("custom_voice", "第二句！", "惊讶"),
+                ],
+            )
             self.assertEqual([path.name for path in outputs], ["0000.wav", "0001.wav"])
             self.assertEqual([Path(values[0]).name for values in writes], ["0000.wav", "0001.wav"])
 
@@ -271,11 +295,45 @@ class Qwen3TtsCliTest(unittest.TestCase):
             )
 
             self.assertEqual(
-                model.call[1]["instruct"],
+                [kwargs["instruct"] for _, kwargs in model.calls],
                 [
                     "清晰自然的普通话年轻女声\n语气平静",
                     "清晰自然的普通话年轻女声\n结尾惊讶",
                 ],
+            )
+
+    def test_base_plan_reuses_clone_prompt_across_sequential_calls(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            plan = root / "speech.json"
+            plan.write_text(
+                json.dumps(
+                    {
+                        "segments": [
+                            {"text": "第一句。", "control": {"type": "none"}},
+                            {"text": "第二句。", "control": {"type": "none"}},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            model = FakeModel()
+            synthesize_plan(
+                plan,
+                root / "parts",
+                model_name="Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+                ref_audio="reference.wav",
+                ref_text="参考文本",
+                model=model,
+                writer=lambda *_: None,
+            )
+
+            self.assertEqual(model.prompt_call["ref_audio"], "reference.wav")
+            self.assertEqual(
+                [kwargs["text"] for _, kwargs in model.calls], ["第一句。", "第二句。"]
+            )
+            self.assertTrue(
+                all(kwargs["voice_clone_prompt"] == {"prompt": True} for _, kwargs in model.calls)
             )
 
 

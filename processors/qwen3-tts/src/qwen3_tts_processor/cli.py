@@ -13,6 +13,7 @@ os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 DEFAULT_MODEL = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
 DEFAULT_LANGUAGE = "Chinese"
 DEFAULT_SPEAKER = "Vivian"
+DEFAULT_MEMORY_FRACTION = 0.8
 MODEL_SOURCES = ("modelscope", "huggingface")
 
 
@@ -105,16 +106,27 @@ def resolve_model_path(
     return downloader(model_name, local_files_only=False)
 
 
+def _set_device_memory_limit(torch: Any, device: str, memory_fraction: float) -> None:
+    if not 0 < memory_fraction <= 1:
+        raise ValueError("memory fraction must be greater than 0 and at most 1")
+    if device.startswith("cuda"):
+        torch.cuda.set_per_process_memory_fraction(memory_fraction, device)
+    elif device.startswith("mps"):
+        torch.mps.set_per_process_memory_fraction(memory_fraction)
+
+
 def load_model(
     model_name: str,
     device: str,
     model_source: str = "modelscope",
+    memory_fraction: float = DEFAULT_MEMORY_FRACTION,
 ) -> Any:
     """Load one Qwen model on the resolved device."""
     import torch
     from qwen_tts import Qwen3TTSModel
 
     resolved_device = choose_device(device)
+    _set_device_memory_limit(torch, resolved_device, memory_fraction)
     return Qwen3TTSModel.from_pretrained(
         resolve_model_path(model_name, model_source),
         device_map=resolved_device,
@@ -131,6 +143,7 @@ def synthesize(
     speaker: str = DEFAULT_SPEAKER,
     device: str = "auto",
     model_source: str = "modelscope",
+    memory_fraction: float = DEFAULT_MEMORY_FRACTION,
     instruct: str = "",
     ref_audio: str | None = None,
     ref_text: str | None = None,
@@ -148,7 +161,7 @@ def synthesize(
     output.parent.mkdir(parents=True, exist_ok=True)
 
     if model is None:
-        model = load_model(model_name, device, model_source)
+        model = load_model(model_name, device, model_source, memory_fraction)
 
     if variant == "custom_voice":
         wavs, sample_rate = model.generate_custom_voice(
@@ -188,12 +201,13 @@ def synthesize_plan(
     speaker: str = DEFAULT_SPEAKER,
     device: str = "auto",
     model_source: str = "modelscope",
+    memory_fraction: float = DEFAULT_MEMORY_FRACTION,
     ref_audio: str | None = None,
     ref_text: str | None = None,
     model: Any | None = None,
     writer: Callable[[str, Any, int], None] | None = None,
 ) -> list[Path]:
-    """Generate every speech-plan segment with one model load and one batch call."""
+    """Generate speech-plan segments sequentially while loading the model once."""
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     segments = plan.get("segments") if isinstance(plan, dict) else None
     if not isinstance(segments, list) or not segments:
@@ -234,38 +248,46 @@ def synthesize_plan(
     if variant == "voice_clone" and not ref_audio:
         raise ValueError("Base voice cloning requires --ref-audio")
     if model is None:
-        model = load_model(model_name, device, model_source)
-    languages = [language] * len(texts)
-    if variant == "custom_voice":
-        wavs, sample_rate = model.generate_custom_voice(
-            text=texts,
-            language=languages,
-            speaker=[speaker] * len(texts),
-            instruct=instructions,
-        )
-    elif variant == "voice_design":
-        wavs, sample_rate = model.generate_voice_design(
-            text=texts, language=languages, instruct=instructions
-        )
-    else:
+        model = load_model(model_name, device, model_source, memory_fraction)
+    prompt = None
+    if variant == "voice_clone":
         prompt = model.create_voice_clone_prompt(
             ref_audio=ref_audio,
             ref_text=ref_text,
             x_vector_only_mode=not bool(ref_text),
         )
-        wavs, sample_rate = model.generate_voice_clone(
-            text=texts, language=languages, voice_clone_prompt=prompt
-        )
-    if len(wavs) != len(texts):
-        raise RuntimeError(f"Qwen3-TTS returned {len(wavs)} waveforms for {len(texts)} segments")
     if writer is None:
         import soundfile as sf
 
         writer = sf.write
     output_dir.mkdir(parents=True, exist_ok=True)
-    outputs = [output_dir / f"{index:04d}.wav" for index in range(len(wavs))]
-    for output, wav in zip(outputs, wavs, strict=True):
-        writer(str(output), wav, sample_rate)
+    outputs = []
+    for index, text in enumerate(texts):
+        if variant == "custom_voice":
+            wavs, sample_rate = model.generate_custom_voice(
+                text=text,
+                language=language,
+                speaker=speaker,
+                instruct=instructions[index],
+            )
+        elif variant == "voice_design":
+            wavs, sample_rate = model.generate_voice_design(
+                text=text,
+                language=language,
+                instruct=instructions[index],
+            )
+        else:
+            wavs, sample_rate = model.generate_voice_clone(
+                text=text,
+                language=language,
+                voice_clone_prompt=prompt,
+            )
+        if len(wavs) != 1:
+            raise RuntimeError(f"Qwen3-TTS returned {len(wavs)} waveforms for segment {index}")
+        output = output_dir / f"{index:04d}.wav"
+        writer(str(output), wavs[0], sample_rate)
+        outputs.append(output)
+        del wavs
     return outputs
 
 
@@ -281,6 +303,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--language", default=DEFAULT_LANGUAGE)
     parser.add_argument("--speaker", default=DEFAULT_SPEAKER)
     parser.add_argument("--device", default="auto")
+    parser.add_argument(
+        "--memory-fraction",
+        type=float,
+        default=DEFAULT_MEMORY_FRACTION,
+        help="Maximum MPS/CUDA allocator fraction; CPU plans are bounded by sequential generation.",
+    )
     parser.add_argument("--model-source", choices=MODEL_SOURCES, default="modelscope")
     parser.add_argument("--instruct", default="")
     parser.add_argument("--ref-audio", default=None, help="Base model reference audio path or URL.")
@@ -306,6 +334,7 @@ def main() -> None:
             speaker=args.speaker,
             device=args.device,
             model_source=args.model_source,
+            memory_fraction=args.memory_fraction,
             ref_audio=args.ref_audio,
             ref_text=args.ref_text,
         )
@@ -320,6 +349,7 @@ def main() -> None:
             speaker=args.speaker,
             device=args.device,
             model_source=args.model_source,
+            memory_fraction=args.memory_fraction,
             instruct=args.instruct,
             ref_audio=args.ref_audio,
             ref_text=args.ref_text,
